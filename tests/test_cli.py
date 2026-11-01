@@ -41,3 +41,23 @@ def test_duplicate_ids(tmp_path):
         f.write("TEST-001,Extra,48999999999,extra@example.invalid,,test_only,,synthetic\n")
     with pytest.raises(ValueError, match="duplicate"):
         read_contacts(path)
+
+
+def test_reject_empty_and_duplicate_headers(tmp_path):
+    empty = tmp_path / "empty.csv"
+    empty.write_text(",".join(COLUMNS) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="no contact"):
+        read_contacts(empty)
+    bad = tmp_path / "headers.csv"
+    bad.write_text("contact_id,full_name,phone,email,instagram,consent,consent_date,consent_date\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="headers"):
+        read_contacts(bad)
+
+
+def test_reports_only_aggregates(tmp_path):
+    path = tmp_path / "test.csv"
+    generate(path, 1)
+    summary = report(read_contacts(path), True)
+    assert summary["valid"] == 1
+    assert "Pessoa Ficticia" not in str(summary)
+    assert "test001@example.invalid" not in str(summary)

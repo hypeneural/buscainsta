@@ -3,13 +3,11 @@ import argparse
 import csv
 import json
 import re
-import secrets
 from collections import Counter
 from datetime import date
 from pathlib import Path
 
 COLUMNS = ("contact_id", "full_name", "phone", "email", "instagram", "consent", "consent_date", "consent_source")
-STATES = {"confirmed", "candidate", "not_found", "unreviewed"}
 
 def normalize_email(value: str) -> str:
     value = value.strip().lower()
@@ -35,7 +33,7 @@ def read_contacts(path: Path, maximum: int = 100) -> list[dict[str, str]]:
         raise ValueError("Input too large (max 1 MB).")
     with path.open(encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
-        if not reader.fieldnames or set(reader.fieldnames) != set(COLUMNS):
+        if not reader.fieldnames or len(reader.fieldnames) != len(COLUMNS) or set(reader.fieldnames) != set(COLUMNS):
             raise ValueError("CSV headers must match the documented schema exactly.")
         rows = []
         ids = set()
@@ -47,6 +45,8 @@ def read_contacts(path: Path, maximum: int = 100) -> list[dict[str, str]]:
                 raise ValueError("Malformed or duplicate contact_id.")
             ids.add(row["contact_id"])
             rows.append(row)
+    if not rows:
+        raise ValueError("CSV has no contact records.")
     return rows
 
 def validate_row(row: dict[str, str], synthetic: bool) -> list[str]:
@@ -74,10 +74,12 @@ def validate_row(row: dict[str, str], synthetic: bool) -> list[str]:
 def generate(path: Path, count: int) -> None:
     if not 1 <= count <= 100:
         raise ValueError("Generate between 1 and 100 synthetic rows.")
-    if path.exists():
-        raise ValueError("Refusing to overwrite an existing file.")
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8", newline="") as handle:
+    try:
+        handle = path.open("x", encoding="utf-8", newline="")
+    except FileExistsError as exc:
+        raise ValueError("Refusing to overwrite an existing file.") from exc
+    with handle:
         writer = csv.DictWriter(handle, fieldnames=COLUMNS)
         writer.writeheader()
         for i in range(1, count + 1):
@@ -85,9 +87,13 @@ def generate(path: Path, count: int) -> None:
 
 def report(rows: list[dict[str, str]], synthetic: bool) -> dict:
     problems = Counter()
+    valid = 0
     for row in rows:
-        problems.update(validate_row(row, synthetic))
-    return {"mode": "synthetic" if synthetic else "consented_local", "total": len(rows), "valid": sum(not validate_row(r, synthetic) for r in rows), "invalid": sum(bool(validate_row(r, synthetic)) for r in rows), "issues": dict(problems), "network_calls": 0, "external_uploads": 0, "instagram_lookup": "not_implemented"}
+        issues = validate_row(row, synthetic)
+        problems.update(issues)
+        if not issues:
+            valid += 1
+    return {"mode": "synthetic" if synthetic else "consented_local", "total": len(rows), "valid": valid, "invalid": len(rows) - valid, "issues": dict(problems), "network_calls": 0, "external_uploads": 0, "instagram_lookup": "not_implemented"}
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="BuscaInsta offline contact validation")
@@ -104,7 +110,10 @@ def main() -> None:
             generate(args.out, args.count)
             print(json.dumps({"status": "generated", "count": args.count, "mode": "synthetic", "path": str(args.out)}))
         else:
-            print(json.dumps(report(read_contacts(args.input), args.synthetic), sort_keys=True))
+            summary = report(read_contacts(args.input), args.synthetic)
+            print(json.dumps(summary, sort_keys=True))
+            if summary["invalid"]:
+                parser.exit(2)
     except (OSError, ValueError) as exc:
         parser.exit(2, f"ERROR: {exc}\n")
 
