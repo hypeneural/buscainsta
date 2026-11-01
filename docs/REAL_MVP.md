@@ -44,3 +44,24 @@ Este exemplo é sintético (e-mail reservado), serve apenas para ilustrar a estr
 - Se houver candidatos falsos, revisar; nunca escrever @ automaticamente no CRM.
 - O Windows não é um cofre por si: restrinja acesso à pasta privada e elimine os arquivos quando não necessários.
 - PR/CI: somente fixtures fictícios. Nenhum acesso a Instagram é necessário para executar pytest.
+
+## Experimento online opcional — telefone/e-mail → sugestão
+
+Este experimento serve especificamente para responder se a implementação *atual* de `instagrapi.address_book_link` retorna uma sugestão contendo o @ já conhecido de um **único voluntário**. Não é ferramenta para localizar pessoas sem consentimento e não deve ser escalada automaticamente.
+
+**Pré-condições:** (1) voluntário concordou expressamente com compartilhamento dos dados de contato à Meta; (2) conta de Instagram de teste própria, sem agenda vinculada; (3) aceitação dos riscos de bloqueio/termos da Meta e verificação de autorização de uso; (4) conhecimento antecipado do @ informado pelo voluntário; (5) nenhum dado do CRM em arquivos públicos.
+
+Em venv separado `.venv-live`:
+```powershell
+py -3.12 -m venv .venv-live
+.\.venv-live\Scripts\python.exe -m pip install -e ".[live]"
+.\.venv-live\Scripts\python.exe -m buscainsta.live_probe --help
+```
+
+Defina as variáveis `BUSCAINSTA_IG_TEST_LOGIN` e `BUSCAINSTA_IG_TEST_PASSWORD` em ambiente local **sem publicar seu conteúdo**. Execute com `--input` (CSV de um voluntário autorizado), `--contact-id`, `--expected-username` e `--confirm-contact-sharing`.
+
+O programa fará login com a conta de teste, enviará **um** `AddressBookContact`, tentará `address_book_unlink` e retornará apenas contagens, comparação booleana e estado de desconexão. Não há proxy, retry de challenges, extração em lote ou persistência de sessão. Se a desconexão falhar, revisar imediatamente a agenda da conta no Instagram.
+
+**Interpretação:** `expected_username_in_suggestions=true` significa que a sugestão contém aquele perfil, mas não comprova que o telefone ou e-mail o causou (podem existir outros sinais). `schema_recognized=false` significa resposta não interpretada, **não** ausência de perfil. Um resultado negativo não prova que o cliente não tem Instagram. Nunca vincular contas ao CRM automaticamente.
+
+Referência do método: https://subzeroid.github.io/instagrapi/3.0.18/usage-guide/user/

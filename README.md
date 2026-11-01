@@ -36,3 +36,19 @@ Veja: [guia completo do piloto](docs/REAL_MVP.md), [regras do agente](AGENTS.md)
 A `instagrapi` documenta `address_book_link`, que envia contatos e pode retornar sugestões. Isso **não confirma associação individual** e envolve compartilhamento de contatos com a Meta, além de possíveis restrições de automação. Por isso o primeiro teste real compara observações e confirmações consentidas, sem prometer `telefone -> @`. Não há conexão de CRM produção.
 
 Fontes: https://github.com/subzeroid/instagrapi ; https://antigravity.google/docs/skills ; https://antigravity.google/docs/rules/
+
+## Teste experimental online com um voluntário conhecido
+
+Há também um **probe opcional da API não oficial** `instagrapi`: executa `address_book_link` com **um contato autorizado por execução**, compara a lista de sugestões com um `@username` previamente informado pelo próprio voluntário e tenta `address_book_unlink` ao terminar. É a primeira verificação real da hipótese de sincronização, mas **não prova identidade nem fornece busca reversa garantida**. Não é executada pelos testes ou pelo setup padrão.
+
+Use **conta de teste sua, sem agenda previamente sincronizada**, não a conta comercial do estúdio. O uso da API privada pode violar condições da plataforma e gerar bloqueios; revise os termos e obtenha as autorizações necessárias antes de executar.
+
+```powershell
+py -3.12 -m venv .venv-live
+.\.venv-live\Scripts\python.exe -m pip install -e ".[live]"
+# Configure BUSCAINSTA_IG_TEST_LOGIN e BUSCAINSTA_IG_TEST_PASSWORD
+# localmente, sem registrar valores no Git, no chat ou em screenshots.
+.\.venv-live\Scripts\python.exe -m buscainsta.live_probe --input "C:\BuscaInstaPrivado\voluntario.csv" --contact-id VOL-001 --expected-username perfil_conhecido --confirm-contact-sharing
+```
+
+O comando nunca salva ou imprime nomes de perfis retornados: informa somente se o username esperado apareceu, número de sugestões e se a desconexão foi concluída. **Não execute 100 uploads em sequência**; primeiro determine se o mecanismo realmente funciona e se seu uso é permitido. Veja [protocolo de campo](docs/REAL_MVP.md).

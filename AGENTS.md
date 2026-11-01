@@ -8,7 +8,7 @@ Projeto: MVP Windows 11 para **avaliar** se contatos autorizados podem ser assoc
 - O GitHub é **público**: nunca versionar CSV real, tokens, sessões Instagram, credenciais, telefone/e-mail de clientes, nem colocar dados pessoais em logs/artefatos.
 - **Dados reais não são proibidos no MVP local.** Usar exclusivamente contatos com autorização específica registrada, arquivos fora do repositório, saídas agregadas e revisão humana. Não é necessário repetir o piloto fictício toda vez que o objetivo for um teste real.
 - Sugestões por nome/agenda não são correspondência comprovada. Só marcar `confirmed` quando o próprio titular confirmar por mensagem ou interação autorizada.
-- Não inventar uma API pública da Meta que converta telefone/e-mail em @. Não contornar bloqueios de plataforma, automatizar scraping não autorizado ou sincronizar a base inteira com APIs privadas.
+- Não inventar uma API pública da Meta que converta telefone/e-mail em @. O probe opcional `live_probe.py` só roda um voluntário com consentimento específico e confirmação explícita; pode violar termos da Meta, então requer avaliação/autorização da plataforma. Não automatizar scraping, contornar bloqueios nem sincronizar a base inteira.
 - Não fazer deploy, merge, push forçado nem alterar o CRM de produção sem aprovação. A PR #1 permanece Draft até revisão.
 
 ## Rotas de execução

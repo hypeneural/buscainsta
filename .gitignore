@@ -28,3 +28,4 @@ tmp/
 
 # Editable installs and Python build metadata
 *.egg-info/
+.venv-live/

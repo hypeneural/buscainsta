@@ -8,7 +8,7 @@ Documentação oficial: https://antigravity.google/docs/rules/ ; https://antigra
 1. **Setup/quebra no Windows:** `/windows-poc` — instalar uma vez, verificar.
 2. **MVP com contatos consentidos:** `/real-pilot` — usar a base local e registrar candidatos/confirmados.
 3. **Auditar código/PR:** `/review-pr` — ler o diff e executar testes, sem reprocessar todo o repo.
-4. **Investigação externa de API:** produzir nota técnica separada; código existente não faz reverse lookup.
+4. **Investigação externa de API:** `live_probe.py` oferece teste opcional de um voluntário via API privada, com aprovação específica; resultado é apenas sugestão, não reverse lookup garantido.
 
 ## Loop mínimo para agente Flash
 1. `git status -sb`; confirmar HEAD/PR. Não vasculhar outros projetos sem necessidade.

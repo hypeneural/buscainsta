@@ -11,7 +11,7 @@ description: Executa MVP real BuscaInsta no Windows com até 100 contatos autori
 - Ambiente novo? Use primeiro `/windows-poc` **uma vez**.
 - Já há Windows homologado e branch atual? Execute somente pytest focal `tests/test_pilot.py`, depois prepare e summarize; CI e teste completo apenas após editar código.
 - Quer testar telefone/e-mail -> @? Use pequeno grupo com @ conhecido pelos voluntários, observe sugestões no aplicativo oficial e registre `candidate`. Confirme os perfis diretamente com o cliente antes de marcar `confirmed`. O app não identifica precisamente qual telefone gerou cada sugestão.
-- Quer automação de sincronização privada? Pesquisar termos e documentação separadamente; **não presumir autorização nem usar endpoints privados como teste padrão**.
+- Quer testar a API de sincronização realmente? Audite `live_probe.py` e testes mockados; com conta de teste própria, autorização expressa para compartilhar um contato e revisão de termos, o operador pode executar o probe opcional. Jamais disparar sem confirmação humana, nem escalar para toda a base. Retornos são sugestões, não identidades comprovadas.
 
 ## Comandos
 - Ver `python -m buscainsta.pilot --help`.
