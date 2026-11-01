@@ -18,3 +18,8 @@ Objetivo da fase: **POC local/offline no Windows 11**, importação, normalizaç
 - `docs/PLAN.md`: escopo de dados autorizados.
 
 Regra operacional: **antes de qualquer rede para plataformas de terceiros ou uso de contatos reais, PARAR e obter revisão dos termos, base legal e autorização explícita separada**. Instalar dependências para testes do projeto exige rede ao gerenciador de pacotes, mas não envia contatos.
+
+## Contrato recente dos validadores
+- Dados gerados para testes **não podem conter telefones discáveis**, usernames ou credenciais. Usar identificadores `TEST-NNN`, nomes fixos e e-mails em `example.invalid`.
+- `validate` requer `--synthetic` OU `--local-consented`. Não usar modo consentido sobre base real sem autorização específica. Mesmo no modo local não há lookup real de Instagram.
+- Ver `docs/VALIDATION_CONTRACT.md`; evidência dos 23 testes anteriores não substitui a homologação da SHA atual.

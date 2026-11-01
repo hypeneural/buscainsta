@@ -1,6 +1,6 @@
 # BuscaInsta — POC offline Windows
 
-Objetivo da fase P0: homologar um validador **local**, de até **100 contatos sintéticos**. Não é uma ferramenta para descobrir perfis Instagram por telefone/e-mail. Não importa dados reais do CRM nem acessa serviços da Meta.
+Objetivo da fase P0: homologar um validador **local**, de até **100 contatos sintéticos com telefone vazio e e-mail reservado**. Não é uma ferramenta para descobrir perfis Instagram por telefone/e-mail. Não importa dados reais do CRM nem acessa serviços da Meta.
 
 ## Windows 11 (PowerShell)
 
@@ -32,7 +32,7 @@ Os dois scripts devem retornar código 0. Se falharem, **não** declarar homolog
 .\.venv\Scripts\python.exe -m buscainsta.cli validate --input data/synthetic.csv --synthetic
 ```
 
-`sample` não sobrescreve arquivos existentes. O validador retorna resumo **agregado** em JSON; código 0 significa registros válidos, código 2 indica entrada inválida ou falha. Cabeçalho exigido: `contact_id,full_name,phone,email,instagram,consent,consent_date,consent_source`. O modo `--synthetic` exige prefixo `TEST-`, `consent=test_only`, `consent_source=synthetic` e e-mail fictício `@example.invalid`; **isso não prova que os dados são fictícios**, portanto nunca alimentar com contatos reais.
+`sample` não sobrescreve arquivos existentes. O validador retorna resumo **agregado** em JSON; código 0 significa registros válidos, código 2 indica entrada inválida ou falha. É obrigatório selecionar **um dos modos**: `--synthetic` ou `--local-consented`. O segundo só valida dados autorizados no computador, jamais pesquisa Instagram. Cabeçalho exigido: `contact_id,full_name,phone,email,instagram,consent,consent_date,consent_source`. O modo `--synthetic` exige alinhamento exato entre ID, nome e e-mail gerados, **telefone/Instagram/data vazios**, `consent=test_only` e `consent_source=synthetic`; **isso não prova que os dados são fictícios**, portanto nunca alimentar com contatos reais.
 
 ### Antigravity
 
@@ -45,3 +45,11 @@ Repositório **público**: nenhum CSV, nome, telefone, e-mail, token, cookie ou 
 Bibliotecas `instagrapi`, `aiograpi`, `instagram-private-api` são referências **não instaladas**. Nenhuma correspondência @Instagram foi validada.
 
 Links: [plano](docs/PLAN.md), [workflow](docs/AGENT_WORKFLOW.md), [skill](.agents/skills/windows-poc/SKILL.md), [PR #1](https://github.com/hypeneural/buscainsta/pull/1).
+
+## Contrato atualizado e execução do Antigravity
+
+- [Matriz forense de validadores e casos adversariais](docs/VALIDATION_CONTRACT.md).
+- [Prompt de re-homologação após as alterações](docs/ANTIGRAVITY_PROMPT.md).
+- A execução de 23 testes no SHA `cf84f615` corresponde à **versão anterior**, não valida os novos contratos; exigir CI + Windows local na SHA atual.
+- `network_calls=0` é declarativo: **não constitui captura de tráfego**. Instalação de dependências via pip pode acessar a internet.
+- Arquivos `*.egg-info/` gerados localmente em instalação editável são ignorados; nunca fazer commit de dados pessoais.

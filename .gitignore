@@ -25,3 +25,6 @@ tmp/
 *.dump
 *.pem
 *.key
+
+# Editable installs and Python build metadata
+*.egg-info/

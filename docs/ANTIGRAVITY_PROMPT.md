@@ -1,16 +1,45 @@
-# Prompt operacional para Antigravity — POC BuscaInsta Windows
+# Prompt Antigravity — revisão forense e re-homologação pós-hardening
 
-Você é responsável por homologar a **fase offline** da PR #1 em `hypeneural/buscainsta`, branch `feat/windows-offline-poc-bootstrap`. Não inicie integração com o CRM ou Instagram.
+Repositório `hypeneural/buscainsta`, branch `feat/windows-offline-poc-bootstrap`, PR #1 Draft. Houve uma homologação do Windows 11 Pro/Python 3.12.10 no commit `cf84f615` com 23 testes PASS. **Aquela evidência vale para o SHA antigo; não utilizar para declarar o novo SHA homologado.**
 
-1. Leia `AGENTS.md`, `docs/AGENT_WORKFLOW.md`, `docs/PLAN.md`, e a skill `.agents/skills/windows-poc/SKILL.md`. Confirme `git status -sb`, HEAD, alterações locais e PR. Não sobrescreva trabalhos pendentes.
-2. Verifique Git e Python >=3.11 e execute no PowerShell:
-   `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1`
-   `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1 -SkipInstall`
-   `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-windows.ps1`
-3. Cada execução deve terminar com exit code 0. O verificador deve executar `doctor`, todos os testes pytest, gerar 100 registros fictícios e reportar validação 100/100, sem escrita persistente de dados pessoais.
-4. Audite os testes negativos do pytest: CSV vazio, >100, duplicados, incompletos, cabeçalho errado, UTF-8 inválido, contato inválido, consentimento ausente, marcadores sintéticos falsos, saída sanitizada.
-5. Se um teste falhar: identificar causa com arquivo/linha e comando, corrigir cirurgicamente, atualizar teste e executar novamente. Não descartar mudanças locais, não usar force-push, não fazer merge, não alterar a main nem outros repositórios.
-6. Confira a CI da SHA final (Windows Python 3.11/3.12 e Ubuntu 3.11/3.12) e `git diff --check` e `git status`. O CI não comprova o ambiente Avell local.
-7. Entregue um dossiê curto: OS/Python, branch/SHA, comandos e códigos de saída, resultado unitário e de 100 registros, regressões, CI por link, achados P0/P1/P2 e recomendação GO/NO-GO **somente para a POC offline**. Não copiar nome de cliente, telefones, e-mails, CSVs, tokens ou cookies.
+## Leitura inicial obrigatória
+1. `git status -sb`; `git branch --show-current`; `git log -3 --oneline`; confirmar trabalhos locais sem perder alterações.
+2. `git fetch origin`; se a árvore estiver limpa: `git pull --ff-only origin feat/windows-offline-poc-bootstrap`; se suja, parar e relatar antes de qualquer mudança.
+3. Ler `AGENTS.md`, `docs/AGENT_WORKFLOW.md`, `docs/VALIDATION_CONTRACT.md`, `docs/PLAN.md`, `.agents/skills/windows-poc/SKILL.md`; revisar `src/buscainsta/cli.py` e todos os testes.
 
-STOP: esta fase não descobre @Instagram. Não acessar CRM de produção, exportar clientes, fazer login no Instagram, sincronizar agendas, testar APIs privadas, enviar dados para serviços, contornar bloqueios ou automatizar consultas de identidade. Qualquer fase com dados reais e acesso externo requer análise/consentimento e aprovação separada.
+## Correções recentemente aplicadas — validar sem reescrever
+- Gerador sintético tem **telefone vazio** e e-mails `testNNN@example.invalid`. Não adicionar números aleatórios que possam pertencer a alguém.
+- `validate` exige um dos modos `--synthetic` e `--local-consented`; este último nunca é automático.
+- Modo sintético exige ID, nome, e-mail e metadados alinhados ao gerador; rejeita telefone, `@instagram` e datas reais.
+- Verificação de DDD, números ASCII, e-mail com domínio plausível e data de consentimento.
+- `*.egg-info/` no .gitignore para impedir arquivos de instalação editável como untracked.
+
+## Executar no PowerShell
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1
+if ($LASTEXITCODE -ne 0) { throw "setup failed" }
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1 -SkipInstall
+if ($LASTEXITCODE -ne 0) { throw "repeat failed" }
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-windows.ps1
+if ($LASTEXITCODE -ne 0) { throw "verification failed" }
+.\.venv\Scripts\python.exe -m pytest -q
+if ($LASTEXITCODE -ne 0) { throw "pytest failed" }
+git diff --check
+git status -sb
+```
+
+## Testes adversariais que precisam passar
+1. CSV sintético 100/100 e **todos os telefones vazios**.
+2. Injetar telefone com formato válido em um registro sintético: deve falhar.
+3. Injetar `@username` em registro sintético: deve falhar.
+4. Trocar e-mail por outro domínio reservado ou nome por outro: deve falhar.
+5. Validar sem selecionar modo: deve falhar; com `--local-consented` e exemplos fictícios explícitos: deve apenas validar estrutura local.
+6. Invalidar DDD, Unicode numérico, e-mail com DNS label inválida, CSV malformado, 101 registros, duplicata e UTF-8 inválido.
+7. Confirmar saída sem dados pessoais e sem CSVs, cookies, tokens ou `egg-info` versionados.
+
+## Publicar evidências
+- SHA novo, sistema, versões, número real de testes e seu resultado, comandos com exit codes, RUN GitHub Actions da SHA final, `git diff --check` e `git status`.
+- Achados P0/P1/P2; correções pequenas com regressões e commits na própria PR se necessário.
+- Manter PR **Draft**; não fazer force-push, merge ou tocar na `main`.
+- Não acessar CRM, não exportar 100 clientes, não autenticar Instagram, não sincronizar contatos nem tentar endpoints não oficiais.
+- Distinguir ausência de integração de uma prova instrumental de zero tráfego.

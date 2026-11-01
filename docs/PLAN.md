@@ -13,7 +13,7 @@ cd buscainsta
 git switch feat/windows-offline-poc-bootstrap
 powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1
 ```
-O script cria ambiente Python, executa testes e valida 100 registros fictícios. Não instala instagrapi/aiograpi porque não há execução externa autorizada nessa fase.
+O script cria ambiente Python, executa testes e valida 100 registros fictícios, **sem telefones preenchidos**, com e-mails reservados para testes. Não instala instagrapi/aiograpi porque não há execução externa autorizada nessa fase.
 
 ## Esquema CSV (UTF-8)
 `contact_id,full_name,phone,email,instagram,consent,consent_date,consent_source`
@@ -28,7 +28,7 @@ O script cria ambiente Python, executa testes e valida 100 registros fictícios.
 2. Executar script de instalação Windows.
 3. Verificar pytest e os agregados 100/100 sintéticos.
 4. Inspecionar .gitignore e verificar que nenhum CSV pessoal ou segredo está rastreado.
-5. Opcional: carregar amostra **autorizada** com `python -m buscainsta.cli validate --input data/consented.csv`. O CSV fica apenas local. Para CSVs reais, consentimento precisa ser validado externamente e não apenas alegado em uma coluna.
+5. Opcional: validar amostra **autorizada** fora do repositório com `python -m buscainsta.cli validate --input C:\\CAMINHO_SEGURO\\consented.csv --local-consented`. O CSV fica apenas local. Para CSVs reais, consentimento precisa ser validado externamente e não apenas alegado em uma coluna.
 6. Documentar erros, versões do Python, comandos e resultados agregados. Não publicar PII.
 7. **STOP**: não adicionar conectores CRM/Meta/Instagram, sessões, token, upload ou busca automática sem revisão legal e aprovação explícita separada.
 
@@ -42,3 +42,7 @@ O script cria ambiente Python, executa testes e valida 100 registros fictícios.
 - Estudar bibliotecas não oficiais `instagrapi`, `aiograpi`, `instagram-private-api` apenas no código-fonte; sua capacidade de retornar um @ por telefone/e-mail não está comprovada em 2026.
 - Um teste de plataforma só poderá ser concebido após análise de termos/privacidade e aprovação explícita, com contas e contatos consentidos; não automatizar descoberta de perfis privados, burlar controles, usar proxies para evasão ou recuperação de senha.
 - Em eventual etapa futura, introduzir revisão humana e proveniência das associações antes de qualquer escrita no CRM.
+
+## Hardening posterior à homologação de 23 testes
+
+A prova local relatada no commit `cf84f615` não valida as novas regras. Ver [`docs/VALIDATION_CONTRACT.md`](VALIDATION_CONTRACT.md) e rerodar no Windows e no CI da SHA final. O modo `--synthetic` recusa números de telefone, perfis Instagram e quaisquer campos divergentes do gerador; o modo `--local-consented` exige opção explícita e não substitui prova jurídica de consentimento.

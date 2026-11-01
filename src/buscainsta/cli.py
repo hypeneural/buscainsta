@@ -13,28 +13,48 @@ COLUMNS = ("contact_id", "full_name", "phone", "email", "instagram", "consent", 
 MAX_ROWS = 100
 MAX_BYTES = 1_000_000
 MAX_FIELD_CHARS = 512
+# Brazilian geographic DDDs; does not verify ownership, active service or number allocation.
+BRAZIL_DDDS = frozenset((11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 24, 27, 28, 31, 32, 33, 34, 35, 37, 38, 41, 42, 43, 44, 45, 46, 47, 48, 49, 51, 53, 54, 55, 61, 62, 63, 64, 65, 66, 67, 68, 69, 71, 73, 74, 75, 77, 79, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99))
 
 
 def normalize_email(value: str) -> str:
+    """Practical ASCII mailbox syntax check; cannot verify delivery or ownership."""
     value = value.strip().lower()
-    return value if re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", value) else ""
+    if len(value) > 254 or value.count("@") != 1 or not value.isascii():
+        return ""
+    local, domain = value.split("@", 1)
+    if not (1 <= len(local) <= 64) or not re.fullmatch(r"[a-z0-9!#$%&'*+/=?^_`{|}~.-]+", local):
+        return ""
+    if local.startswith(".") or local.endswith(".") or ".." in local:
+        return ""
+    labels = domain.split(".")
+    if len(labels) < 2 or any(
+        not (1 <= len(label) <= 63)
+        or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)
+        for label in labels
+    ):
+        return ""
+    return value
 
 
 def normalize_phone(value: str) -> str:
     """Conservative BR E.164 formatting; not a carrier or ownership check."""
     value = value.strip()
-    if not re.fullmatch(r"[+\d\s().-]*", value):
+    # Only ASCII digits and permitted punctuation; reject Unicode look-alikes.
+    if not re.fullmatch(r"[+0-9 \t().-]*", value) or value.count("+") > 1 or ("+" in value and not value.startswith("+")):
         return ""
-    digits = re.sub(r"\D", "", value)
+    digits = re.sub(r"[^0-9]", "", value)
     if digits.startswith("0055") and len(digits) in (14, 15):
         digits = digits[4:]
     elif digits.startswith("55") and len(digits) in (12, 13):
         digits = digits[2:]
     if len(digits) not in (10, 11):
         return ""
-    if digits[0] == "0" or digits[1] == "0":
+    if int(digits[:2]) not in BRAZIL_DDDS:
         return ""
     if len(digits) == 11 and digits[2] != "9":
+        return ""
+    if len(digits) == 10 and digits[2] not in "2345":
         return ""
     return "+55" + digits
 
@@ -83,12 +103,25 @@ def validate_row(row: dict[str, str], synthetic: bool) -> list[str]:
     if not (phone_valid or email_valid):
         errors.append("missing_valid_contact")
     if synthetic:
-        if not row["contact_id"].startswith("TEST-"):
+        # Strict generated-fixture contract: prevents accidental real numbers
+        # or real Instagram handles being classified as synthetic test input.
+        match = re.fullmatch(r"TEST-([0-9]{3})", row["contact_id"])
+        if not match or not 1 <= int(match.group(1)) <= MAX_ROWS:
             errors.append("synthetic_requires_TEST_id")
+        else:
+            number = match.group(1)
+            if row["full_name"] != f"Pessoa Ficticia {number}":
+                errors.append("synthetic_name_mismatch")
+            if row["email"] != f"test{number}@example.invalid":
+                errors.append("synthetic_requires_reserved_email")
+        if row["phone"]:
+            errors.append("synthetic_phone_must_be_empty")
+        if row["instagram"]:
+            errors.append("synthetic_instagram_must_be_empty")
+        if row["consent_date"]:
+            errors.append("synthetic_consent_date_must_be_empty")
         if row["consent"] != "test_only" or row["consent_source"] != "synthetic":
             errors.append("synthetic_marker_missing")
-        if row["email"] and not row["email"].lower().endswith("@example.invalid"):
-            errors.append("synthetic_requires_reserved_email")
     else:
         if row["consent"].casefold() != "yes":
             errors.append("missing_explicit_consent")
@@ -117,7 +150,7 @@ def generate(path: Path, count: int) -> None:
         for i in range(1, count + 1):
             writer.writerow(dict(
                 contact_id=f"TEST-{i:03}", full_name=f"Pessoa Ficticia {i:03}",
-                phone=f"4899{i:07d}", email=f"test{i:03}@example.invalid",
+                phone="", email=f"test{i:03}@example.invalid",
                 instagram="", consent="test_only", consent_date="", consent_source="synthetic",
             ))
 
@@ -147,7 +180,9 @@ def main() -> None:
     sample.add_argument("--count", type=int, default=100)
     validate = sub.add_parser("validate", help="Check local CSV with aggregated output")
     validate.add_argument("--input", type=Path, required=True)
-    validate.add_argument("--synthetic", action="store_true")
+    mode = validate.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--synthetic", action="store_true", help="Strict generated fixture only")
+    mode.add_argument("--local-consented", action="store_true", help="Offline validation of specifically authorized data; never uploads")
     sub.add_parser("doctor", help="Show PII-free runtime diagnostics")
     args = parser.parse_args()
     try:
