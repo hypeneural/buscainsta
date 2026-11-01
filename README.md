@@ -9,6 +9,7 @@ Requer Python 3.11+ e Git. No PowerShell:
 ```powershell
 git clone https://github.com/hypeneural/buscainsta.git
 cd buscainsta
+git switch feat/windows-offline-poc-bootstrap
 powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1
 ```
 
