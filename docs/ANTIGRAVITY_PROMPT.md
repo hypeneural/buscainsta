@@ -1,13 +1,16 @@
-# Prompt operacional — Antigravity no Windows
+# Prompt operacional para Antigravity — POC BuscaInsta Windows
 
-Use o repositório `hypeneural/buscainsta`, branch `feat/windows-offline-poc-bootstrap`, PR #1 Draft e issue #2.
+Você é responsável por homologar a **fase offline** da PR #1 em `hypeneural/buscainsta`, branch `feat/windows-offline-poc-bootstrap`. Não inicie integração com o CRM ou Instagram.
 
-1. Leia `AGENTS.md`, `docs/AGENT_WORKFLOW.md` e `docs/PLAN.md`. Inspecione `git status -sb`, `git branch --show-current`, `git log -3 --oneline`. Não sobrescreva arquivos locais nem use outra branch sem necessidade.
-2. Faça um plano curto (`/plan` se suportado) para homologar a fase offline; leia `.agents/skills/windows-poc/SKILL.md` e execute os passos.
-3. No PowerShell, rode `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1` **duas vezes**. Verifique exit code de cada execução, testes pytest, geração/validação de 100 exemplos sintéticos e retorno sem dados pessoais.
-4. Faça testes negativos de cabeçalho duplicado, CSV vazio, mais de 100 registros, ID duplicado, formatos inválidos e ausência de consentimento. Verifique `git diff --check` e dados indevidos em `git status`.
-5. Revise a PR com o skill `/review-pr` e, se disponível, agente `offline-reviewer`. Qualquer bug deve ter patch pequeno, teste e commit na própria branch; não faça merge/force-push/deploy.
-6. Entregue SHA da branch, versões Windows/Python, comandos e códigos de saída, resultados dos testes, URL da run GitHub Actions da **SHA final**, achados P0/P1/P2 e checklist de gates.
-7. **Não** acessar CRM de produção, dados reais, autenticar no Instagram, sincronizar agenda, usar APIs privadas, proxies, scraping ou publicar PII. Se alguma dessas tarefas parecer necessária, pare e solicite aprovação específica. Não afirme que encontra usernames reais.
+1. Leia `AGENTS.md`, `docs/AGENT_WORKFLOW.md`, `docs/PLAN.md`, e a skill `.agents/skills/windows-poc/SKILL.md`. Confirme `git status -sb`, HEAD, alterações locais e PR. Não sobrescreva trabalhos pendentes.
+2. Verifique Git e Python >=3.11 e execute no PowerShell:
+   `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1`
+   `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1 -SkipInstall`
+   `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-windows.ps1`
+3. Cada execução deve terminar com exit code 0. O verificador deve executar `doctor`, todos os testes pytest, gerar 100 registros fictícios e reportar validação 100/100, sem escrita persistente de dados pessoais.
+4. Audite os testes negativos do pytest: CSV vazio, >100, duplicados, incompletos, cabeçalho errado, UTF-8 inválido, contato inválido, consentimento ausente, marcadores sintéticos falsos, saída sanitizada.
+5. Se um teste falhar: identificar causa com arquivo/linha e comando, corrigir cirurgicamente, atualizar teste e executar novamente. Não descartar mudanças locais, não usar force-push, não fazer merge, não alterar a main nem outros repositórios.
+6. Confira a CI da SHA final (Windows Python 3.11/3.12 e Ubuntu 3.11/3.12) e `git diff --check` e `git status`. O CI não comprova o ambiente Avell local.
+7. Entregue um dossiê curto: OS/Python, branch/SHA, comandos e códigos de saída, resultado unitário e de 100 registros, regressões, CI por link, achados P0/P1/P2 e recomendação GO/NO-GO **somente para a POC offline**. Não copiar nome de cliente, telefones, e-mails, CSVs, tokens ou cookies.
 
-A POC não faz chamadas externas para Instagram/CRM; instalação de dependências pode acessar fontes públicas como PyPI. O objetivo é reproduzir localmente o POC offline com logs agregados.
+STOP: esta fase não descobre @Instagram. Não acessar CRM de produção, exportar clientes, fazer login no Instagram, sincronizar agendas, testar APIs privadas, enviar dados para serviços, contornar bloqueios ou automatizar consultas de identidade. Qualquer fase com dados reais e acesso externo requer análise/consentimento e aprovação separada.

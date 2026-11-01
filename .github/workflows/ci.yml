@@ -24,14 +24,27 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install test dependencies
         run: python -m pip install -e ".[test]"
-      - name: Unit tests
+      - name: Unit tests and CLI negative paths
         run: python -m pytest -q
-      - name: Smoke test with temporary synthetic file
+      - name: Synthetic smoke test
         shell: pwsh
         run: |
           $file = Join-Path $env:RUNNER_TEMP "buscainsta-synthetic.csv"
-          python -m buscainsta.cli sample --out $file --count 100
-          if ($LASTEXITCODE -ne 0) { throw "generation failed" }
-          python -m buscainsta.cli validate --input $file --synthetic
-          if ($LASTEXITCODE -ne 0) { throw "validation failed" }
-          Remove-Item -LiteralPath $file -Force
+          try {
+            python -m buscainsta.cli doctor
+            if ($LASTEXITCODE -ne 0) { throw "doctor failed" }
+            python -m buscainsta.cli sample --out $file --count 100
+            if ($LASTEXITCODE -ne 0) { throw "generation failed" }
+            $result = python -m buscainsta.cli validate --input $file --synthetic | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or $result.total -ne 100 -or $result.valid -ne 100 -or $result.invalid -ne 0) { throw "validation failed" }
+          } finally {
+            if (Test-Path -LiteralPath $file) { Remove-Item -LiteralPath $file -Force }
+          }
+      - name: Windows installer repeatability
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1
+          if ($LASTEXITCODE -ne 0) { throw "first Windows bootstrap failed" }
+          & powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1 -SkipInstall
+          if ($LASTEXITCODE -ne 0) { throw "offline repeat failed" }
