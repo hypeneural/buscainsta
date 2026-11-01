@@ -10,6 +10,7 @@
 ```powershell
 git clone https://github.com/hypeneural/buscainsta.git
 cd buscainsta
+git switch feat/windows-offline-poc-bootstrap
 powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1
 ```
 O script cria ambiente Python, executa testes e valida 100 registros fictícios. Não instala instagrapi/aiograpi porque não há execução externa autorizada nessa fase.
