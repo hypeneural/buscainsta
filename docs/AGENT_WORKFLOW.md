@@ -1,31 +1,27 @@
-# Workflow canônico Antigravity (31/10/2026)
+# Workflow eficiente — Google Antigravity (31/10/2026)
 
-## Por que esta estrutura
-O Google Antigravity passou a priorizar **Rules** em `AGENTS.md`, **Agent Skills** em `.agents/skills/<name>/SKILL.md` (carregamento sob demanda), e agentes especializados em `.agents/agents/`. Os antigos arquivos `.agents/workflows/*.md` deixam de funcionar a partir de 19/10/2026; não criar novos workflows legados.
+O Antigravity IDE 2.6.0 (26/10/2026) inclui arquitetura de agente atualizada. Para reduzir custo e alucinações no Flash: **AGENTS.md curto + skills sob demanda + comandos de verificação**, não prompts monolíticos.
 
-Referências oficiais:
-- https://antigravity.google/docs/rules/
-- https://antigravity.google/docs/skills
-- https://antigravity.google/docs/migration/workflows-to-skills
-- https://antigravity.google/docs/customization-discovery
-- https://antigravity.google/docs/subagents
-- https://antigravity.google/docs/changelog
+Documentação oficial: https://antigravity.google/docs/rules/ ; https://antigravity.google/docs/skills ; https://antigravity.google/docs/migration/workflows-to-skills ; https://antigravity.google/docs/subagents ; https://antigravity.google/changelog
 
-## Rotina enxuta para um agente econômico (Flash)
+## Despacho por objetivo
+1. **Setup/quebra no Windows:** `/windows-poc` — instalar uma vez, verificar.
+2. **MVP com contatos consentidos:** `/real-pilot` — usar a base local e registrar candidatos/confirmados.
+3. **Auditar código/PR:** `/review-pr` — ler o diff e executar testes, sem reprocessar todo o repo.
+4. **Investigação externa de API:** produzir nota técnica separada; código existente não faz reverse lookup.
 
-1. **Descobrir:** leia `AGENTS.md`; `git status -sb`, `git log -3 --oneline`; leia a PR/issue e o arquivo alvo. Não varra o CRM nem outros repositórios.
-2. **Planejar:** escrever problema, escopo, hipóteses, arquivos impactados, reprodução e critérios de aceite; usar `/plan` quando disponível e revisar antes de codificar.
-3. **Executar:** patch cirúrgico, uma responsabilidade por alteração, sem reestruturação especulativa. Não sobrescrever alterações alheias.
-4. **Validar:** pytest, script de Windows 2x, casos negativos, `git diff --check`, `git status --short`, inspeção sem PII, CI por SHA.
-5. **Revisar:** acionar skill `/review-pr` e opcionalmente o agente `offline-reviewer` (se a instalação suporta custom agents). Use evidência de execução, não suposições.
-6. **Publicar:** commits pequenos, PR em Draft; descrever arquivos, resultados, riscos, links de CI/issue. Nada de merge automático.
+## Loop mínimo para agente Flash
+1. `git status -sb`; confirmar HEAD/PR. Não vasculhar outros projetos sem necessidade.
+2. Escolher **um** skill e executar `--help` do script antes de ler sua implementação (orientação oficial de progressive disclosure).
+3. Definir resultado observável e 1–3 arquivos impactados. `/plan` se a mudança for extensa; não criar planejamento infinito.
+4. Primeiro executar apenas teste focal. Alterar uma causa e adicionar regressão. Depois rodar pytest completo e conferir CI.
+5. Registrar **SHA + comandos + exit code + evidência**, com diagnóstico P0/P1/P2. Nunca publicar contatos ou credenciais.
+6. Parar após passar o objetivo. Não repetir setup/pip/testes completos por tentativa de ganhar confiança sem mudança de código.
 
-## Gates
-- **G0 Repositório:** branch correta, worktree íntegra, nenhum arquivo pessoal rastreado.
-- **G1 Qualidade:** pytest e entrada sintética 100/100; testes negativos; repetibilidade Windows.
-- **G2 Segurança:** zero credenciais, PII, scraping, integrações externas ou persistência indevida.
-- **G3 Revisão:** CI real verde na SHA final; revisão do PR e autorização do mantenedor.
-- **G4 Futuro — não autorizado:** qualquer CRM real, Meta/Instagram, consentimento externo, upload, identificação de pessoas. Exige aprovação separada e análise legal/termos. Não inferir que G3 habilita G4.
+## Gates proporcionais
+- Código: testes focal + suíte geral + CI da SHA final.
+- MVP de campo: somente contatos com finalidade autorizada, pastas privadas, status candidato x confirmado e métricas agregadas.
+- Integrações reais: avaliar individualmente Meta, termos e consentimento; não presumir que uma API privada é permitida.
+- Merge/CRM produção: dependem da revisão do mantenedor e não são subprodutos automáticos do teste.
 
-## Relatório de evidências
-Use markdown (sem dados pessoais): branch, HEAD SHA, versões do Windows/Python, comandos e exit codes, pytest pass/fail, testes negativos, links para runs, `git status`, problemas P0/P1/P2, recomendação GO/NO-GO restrita a G0–G3. **Não publicar dumps ou screenshots que contenham nomes, e-mails, telefones.**
+Os workflows legados (`.agents/workflows/`) foram substituídos por skills; não criar arquivos antigos.

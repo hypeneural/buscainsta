@@ -1,10 +1,10 @@
-# BuscaInsta — POC offline Windows
+# BuscaInsta — MVP Windows para pesquisa e validação de perfis
 
-Objetivo da fase P0: homologar um validador **local**, de até **100 contatos sintéticos com telefone vazio e e-mail reservado**. Não é uma ferramenta para descobrir perfis Instagram por telefone/e-mail. Não importa dados reais do CRM nem acessa serviços da Meta.
+**Situação:** validador offline homologado no Windows 11 (57 testes em `76345c6`); agora acrescentamos um **piloto de campo com contatos autorizados**, candidatos observados e confirmação pelo cliente. O piloto **não** tem busca reversa automática de username por telefone/e-mail.
 
-## Windows 11 (PowerShell)
+## Instalação inicial (Windows 11)
 
-Pré-requisitos: Git, Python 3.11+ instalado e disponível no PATH (ou launcher `py`), e internet **somente no primeiro setup** para baixar dependências de desenvolvimento.
+Git e Python 3.11+:
 
 ```powershell
 git clone https://github.com/hypeneural/buscainsta.git
@@ -13,43 +13,26 @@ git switch feat/windows-offline-poc-bootstrap
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1
 ```
 
-O instalador cria `.venv` no **próprio repositório**, instala o pacote/pytest e chama o verificador. O verificador executa `doctor`, pytest e valida **100 contatos fictícios** em arquivo temporário que é apagado ao terminar. Nenhum contato é enviado para a internet.
+Ambiente já instalado: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1 -SkipInstall`.
 
-Depois da instalação, repita sem baixar dependências:
+## Teste real com até 100 contatos autorizados
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1 -SkipInstall
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify-windows.ps1
-.\.venv\Scripts\python.exe -m buscainsta.cli doctor
-```
-
-Os dois scripts devem retornar código 0. Se falharem, **não** declarar homologação: registrar somente erro técnico sanitizado, Python/Windows, branch e SHA, sem copiar arquivos locais de clientes.
-
-### CLI manual
+Prepare manualmente um CSV UTF-8 de contatos com autorização específica **fora do clone Git**. Exemplo de caminho privado: `C:\\BuscaInstaPrivado\\contatos.csv`.
 
 ```powershell
-.\.venv\Scripts\python.exe -m buscainsta.cli sample --out data/synthetic.csv --count 100
-.\.venv\Scripts\python.exe -m buscainsta.cli validate --input data/synthetic.csv --synthetic
+.\.venv\Scripts\python.exe -m pytest -q tests/test_pilot.py
+.\.venv\Scripts\python.exe -m buscainsta.cli validate --input "C:\\BuscaInstaPrivado\\contatos.csv" --local-consented
+.\.venv\Scripts\python.exe -m buscainsta.pilot prepare --input "C:\\BuscaInstaPrivado\\contatos.csv" --output "C:\\BuscaInstaPrivado\\revisao.csv"
+# Preencha manualmente candidatos, status e confirmação no CSV privado.
+.\.venv\Scripts\python.exe -m buscainsta.pilot summarize --input "C:\\BuscaInstaPrivado\\revisao.csv"
 ```
 
-`sample` não sobrescreve arquivos existentes. O validador retorna resumo **agregado** em JSON; código 0 significa registros válidos, código 2 indica entrada inválida ou falha. É obrigatório selecionar **um dos modos**: `--synthetic` ou `--local-consented`. O segundo só valida dados autorizados no computador, jamais pesquisa Instagram. Cabeçalho exigido: `contact_id,full_name,phone,email,instagram,consent,consent_date,consent_source`. O modo `--synthetic` exige alinhamento exato entre ID, nome e e-mail gerados, **telefone/Instagram/data vazios**, `consent=test_only` e `consent_source=synthetic`; **isso não prova que os dados são fictícios**, portanto nunca alimentar com contatos reais.
+O arquivo de revisão registra `pending`, `candidate`, `confirmed`, `not_found` ou `rejected`. Só confirme uma identidade quando a própria pessoa a confirmar. O programa **não** conecta ao Instagram/CRM, não faz scraping, não envia e-mail/WhatsApp e não guarda PII no GitHub. Os comandos exibem apenas totais agregados. O CSV privado pode conter identificadores, não compartilhe.
 
-### Antigravity
+Veja: [guia completo do piloto](docs/REAL_MVP.md), [regras do agente](AGENTS.md), [skill real-pilot](.agents/skills/real-pilot/SKILL.md), [workflow](docs/AGENT_WORKFLOW.md), [prompt Antigravity](docs/ANTIGRAVITY_PROMPT.md), [contrato de validação](docs/VALIDATION_CONTRACT.md).
 
-Leia `AGENTS.md`, `docs/AGENT_WORKFLOW.md` e use o skill `.agents/skills/windows-poc/SKILL.md`. O prompt completo está em `docs/ANTIGRAVITY_PROMPT.md`; a revisão na skill `.agents/skills/review-pr/SKILL.md`. Manter PR #1 em **Draft** até testes Windows locais e CI na SHA final.
+## Por que a API privada não está ativada por padrão?
 
-## Segurança e escopo
+A `instagrapi` documenta `address_book_link`, que envia contatos e pode retornar sugestões. Isso **não confirma associação individual** e envolve compartilhamento de contatos com a Meta, além de possíveis restrições de automação. Por isso o primeiro teste real compara observações e confirmações consentidas, sem prometer `telefone -> @`. Não há conexão de CRM produção.
 
-Repositório **público**: nenhum CSV, nome, telefone, e-mail, token, cookie ou credencial de clientes no GitHub/CI. Coloque qualquer dado autorizado somente fora deste repositório, nunca em comentários ou logs. A coluna `consent=yes` é apenas um marcador e **não substitui comprovação de autorização**. Não acessar CRM/Instagram ou enviar contatos a APIs não oficiais nesta fase.
-
-Bibliotecas `instagrapi`, `aiograpi`, `instagram-private-api` são referências **não instaladas**. Nenhuma correspondência @Instagram foi validada.
-
-Links: [plano](docs/PLAN.md), [workflow](docs/AGENT_WORKFLOW.md), [skill](.agents/skills/windows-poc/SKILL.md), [PR #1](https://github.com/hypeneural/buscainsta/pull/1).
-
-## Contrato atualizado e execução do Antigravity
-
-- [Matriz forense de validadores e casos adversariais](docs/VALIDATION_CONTRACT.md).
-- [Prompt de re-homologação após as alterações](docs/ANTIGRAVITY_PROMPT.md).
-- A execução de 23 testes no SHA `cf84f615` corresponde à **versão anterior**, não valida os novos contratos; exigir CI + Windows local na SHA atual.
-- `network_calls=0` é declarativo: **não constitui captura de tráfego**. Instalação de dependências via pip pode acessar a internet.
-- Arquivos `*.egg-info/` gerados localmente em instalação editável são ignorados; nunca fazer commit de dados pessoais.
+Fontes: https://github.com/subzeroid/instagrapi ; https://antigravity.google/docs/skills ; https://antigravity.google/docs/rules/

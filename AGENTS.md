@@ -1,25 +1,20 @@
-# BuscaInsta — instruções permanentes para agentes
+# BuscaInsta — regras permanentes (Antigravity, 2026)
 
-Objetivo da fase: **POC local/offline no Windows 11**, importação, normalização e validação de até 100 contatos de teste. **Nenhuma busca real de Instagram foi implementada.**
+Projeto: MVP Windows 11 para **avaliar** se contatos autorizados podem ser associados com segurança a perfis Instagram. Não confundir validade do CSV, conta sugerida e vínculo confirmado.
 
-## Invariantes
-- Não acessar o CRM de produção, não autenticar no Instagram, nem transmitir/sincronizar telefones, nomes e e-mails. Investigar APIs privadas somente pela documentação/código público.
-- Nunca salvar, commitar ou expor PII, CSVs reais, cookies, tokens e credenciais; o repositório é **público**. Não colocar exemplos reais em issues, CI e comentários.
-- Não inferir identidade de um perfil a partir de sugestões, nomes semelhantes ou metadados de agenda; exigir consentimento e confirmação adequada antes de futura associação ao CRM.
-- Trabalhar na branch do PR aberto; consultar `git status`, `git branch --show-current` e `git log -3 --oneline` antes de editar. Não reescrever históricos, fazer force-push, merge, deploy ou alterar outros repositórios.
-- Mudanças pequenas e testadas; documentar hipótese, alteração e evidência. Revisar diffs para ausência de dados pessoais e segredos.
-- Usar Python >=3.11, stdlib no runtime, pytest somente em desenvolvimento; saída de validação deve permanecer agregada e sem dados de contatos.
-- Não afirmar que CI ou testes Windows passaram sem link/resultados verificáveis. Em caso de falha, registrar evidência e bloquear merge.
+## Regras sempre ativas
+- Leia somente os arquivos necessários à tarefa. Use os skills `windows-poc`, `real-pilot` ou `review-pr`; evite reler documentação inteira a cada turno.
+- Antes de editar: `git status -sb`, branch/HEAD, PR; não sobrescrever trabalhos locais. Patches pequenos, testes direcionados, depois pytest completo e CI da SHA final.
+- O GitHub é **público**: nunca versionar CSV real, tokens, sessões Instagram, credenciais, telefone/e-mail de clientes, nem colocar dados pessoais em logs/artefatos.
+- **Dados reais não são proibidos no MVP local.** Usar exclusivamente contatos com autorização específica registrada, arquivos fora do repositório, saídas agregadas e revisão humana. Não é necessário repetir o piloto fictício toda vez que o objetivo for um teste real.
+- Sugestões por nome/agenda não são correspondência comprovada. Só marcar `confirmed` quando o próprio titular confirmar por mensagem ou interação autorizada.
+- Não inventar uma API pública da Meta que converta telefone/e-mail em @. Não contornar bloqueios de plataforma, automatizar scraping não autorizado ou sincronizar a base inteira com APIs privadas.
+- Não fazer deploy, merge, push forçado nem alterar o CRM de produção sem aprovação. A PR #1 permanece Draft até revisão.
 
-## Onde encontrar instruções operacionais
-- `docs/AGENT_WORKFLOW.md`: sequência de trabalho, gates e entrega.
-- `.agents/skills/windows-poc/SKILL.md`: executar homologação Windows e testes.
-- `.agents/skills/review-pr/SKILL.md`: auditoria de changes/PR/segurança.
-- `docs/PLAN.md`: escopo de dados autorizados.
+## Rotas de execução
+- **Ambiente e regressão:** `.agents/skills/windows-poc/SKILL.md`
+- **Piloto real (local):** `.agents/skills/real-pilot/SKILL.md`
+- **Review:** `.agents/skills/review-pr/SKILL.md`
+- **Contratos:** `docs/VALIDATION_CONTRACT.md`; **teste real:** `docs/REAL_MVP.md`
 
-Regra operacional: **antes de qualquer rede para plataformas de terceiros ou uso de contatos reais, PARAR e obter revisão dos termos, base legal e autorização explícita separada**. Instalar dependências para testes do projeto exige rede ao gerenciador de pacotes, mas não envia contatos.
-
-## Contrato recente dos validadores
-- Dados gerados para testes **não podem conter telefones discáveis**, usernames ou credenciais. Usar identificadores `TEST-NNN`, nomes fixos e e-mails em `example.invalid`.
-- `validate` requer `--synthetic` OU `--local-consented`. Não usar modo consentido sobre base real sem autorização específica. Mesmo no modo local não há lookup real de Instagram.
-- Ver `docs/VALIDATION_CONTRACT.md`; evidência dos 23 testes anteriores não substitui a homologação da SHA atual.
+`network_calls: 0` é descritivo do app, não uma captura de tráfego.
