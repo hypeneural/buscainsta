@@ -15,6 +15,10 @@ from .cli import normalize_email, normalize_phone, read_contacts, validate_row
 from .pilot import username
 
 
+class ProbeInputError(ValueError):
+    """Trusted local input validation failure."""
+
+
 def candidate_usernames(payload: object) -> set[str]:
     """Recognize documented raw top-level candidate lists; unknown schema = inconclusive."""
     if not isinstance(payload, dict):
@@ -39,7 +43,7 @@ def payload_contact(row: dict[str, str]) -> dict:
     emails = [dict(email_address=normalize_email(row["email"]))] if row["email"] else []
     # Only include the contact information the volunteer authorized.
     return {"phone_numbers": phones, "email_addresses": emails,
-            "first_name": row["full_name"], "last_name": ""}
+            "first_name": "", "last_name": ""}
 
 
 def run_probe(
@@ -49,10 +53,10 @@ def run_probe(
     rows = read_contacts(path)
     found = [r for r in rows if r["contact_id"] == contact_id]
     if len(found) != 1 or validate_row(found[0], synthetic=False):
-        raise ValueError("Selected contact was not found or lacks required authorization.")
+        raise ProbeInputError("Selected contact was not found or lacks required authorization.")
     normalized_expected = username(expected)
     if not normalized_expected:
-        raise ValueError("Expected volunteer username is invalid.")
+        raise ProbeInputError("Expected volunteer username is invalid.")
     cl = client_factory()
     uploaded = False
     unlink_status = "not_needed"
@@ -108,10 +112,9 @@ def main() -> None:
         print(json.dumps(result, sort_keys=True))
         if result["unlink"] != "completed":
             parser.exit(3, "WARNING: Unlink failed; inspect the test account's contact settings.\n")
-    except (OSError, ValueError, UnicodeError) as exc:
-        # Do not echo user-supplied values or file paths.
-        if isinstance(exc, ValueError):
-            parser.exit(2, f"ERROR: {exc}\n")
+    except ProbeInputError as exc:
+        parser.exit(2, f"ERROR: {exc}\n")
+    except (OSError, UnicodeError):
         parser.exit(2, "ERROR: Local input validation failed.\n")
     except Exception:
         # Avoid leaking Instagram error messages, account names, or tokens.
