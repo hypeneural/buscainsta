@@ -1,5 +1,5 @@
 ---
-name: quality-reviewer
+name: offline-reviewer
 description: Agente de revisão de diffs Python/Windows para regressões, privacidade e métricas do MVP BuscaInsta. Use quando a PR precisar de avaliação independente, não para repetir o setup.
 mainAgent: false
 subagent: true
