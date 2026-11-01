@@ -1,21 +1,21 @@
-# BuscaInsta — POC offline de contatos (Windows)
+# BuscaInsta — POC offline Windows
 
-Projeto inicial para estudar a possibilidade de vincular, com autorização, perfis Instagram a contatos do CRM. **Não é um localizador de usernames por telefone/e-mail**. A API pública da Meta não disponibiliza essa busca reversa; relatos de bibliotecas privadas não comprovam correspondência confiável nem autorização de uso.
+Projeto para estudar, com segurança e autorização, a associação de perfis Instagram a contatos do CRM. **Não implementa busca reversa de usuários por telefone/e-mail.** Bibliotecas não oficiais de sincronização de agenda não comprovaram correspondência confiável nem autorização da plataforma.
 
-## Começar no Windows 11
+## Início rápido (Windows 11)
 
-Requer Python 3.11+ e Git. No PowerShell:
+Requer Git e Python >=3.11 com launcher `py`. No PowerShell:
 
 ```powershell
 git clone https://github.com/hypeneural/buscainsta.git
 cd buscainsta
 git switch feat/windows-offline-poc-bootstrap
-powershell -ExecutionPolicy Bypass -File scripts/setup-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-windows.ps1
 ```
 
-O script instala apenas o aplicativo local e pytest. Gera `data/synthetic.csv` (100 contatos fictícios) e valida tudo **offline**.
+Execute o último comando **duas vezes**: deve ter o mesmo resultado. Ele cria um venv, instala a aplicação e pytest, roda os testes e gera/valida **100 registros inteiramente fictícios** em um arquivo temporário, removido ao final. Pode baixar dependências de PyPI, mas **não conecta ao CRM nem ao Instagram**.
 
-Para executar manualmente:
+Teste manual local:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
@@ -23,20 +23,27 @@ Para executar manualmente:
 .\.venv\Scripts\python.exe -m buscainsta.cli validate --input data/synthetic.csv --synthetic
 ```
 
-Nenhuma credencial Instagram, token Meta ou acesso ao CRM é requerido.
+O comando `sample` recusa sobrescrita; para repetir o exemplo manual, remova apenas o **seu CSV fictício** já existente ou use outro caminho. **Não exclua arquivos reais por engano.** A validação de CSV emite contagens agregadas e retorna código de saída 2 quando alguma linha é inválida. Cabeçalhos esperados: `contact_id,full_name,phone,email,instagram,consent,consent_date,consent_source`.
 
-## Privacidade e escopo
+## Trabalho com o Antigravity
 
-- Repositório público: **não suba CSVs reais**, senhas, cookies ou relatórios pessoais.
-- Não faça upload de dados de clientes a APIs privadas do Instagram. Dados do CRM para atendimento não pressupõem consentimento para descoberta de perfis.
-- A validação de registros reais é **somente local**, exige consentimento específico e não efetua lookup no Instagram.
-- Resultados agregados não identificam clientes.
-- Veja [plano detalhado](docs/PLAN.md) e [instruções do Antigravity](docs/ANTIGRAVITY_PROMPT.md).
+- [Regras persistentes do agente](AGENTS.md) — carregadas automaticamente.
+- [Workflow e gates](docs/AGENT_WORKFLOW.md) — sequência canônica e evidências.
+- [Skill /windows-poc](.agents/skills/windows-poc/SKILL.md) — homologar Windows.
+- [Skill /review-pr](.agents/skills/review-pr/SKILL.md) — auditoria de PR.
+- [Agente offline-reviewer](.agents/agents/offline-reviewer.md) — especialista em regressões e privacidade.
+- [Prompt curto de execução](docs/ANTIGRAVITY_PROMPT.md) e [plano detalhado](docs/PLAN.md).
 
-## Fontes técnicas estudadas
+**A PR #1 permanece Draft** até que CI da SHA final e execução no Windows local sejam confirmados. Não faça merge ou deploy sem revisão.
+
+## Privacidade
+
+O repositório é público. Não faça commit de CSVs reais, telefones, e-mails, nomes de clientes, tokens, cookies ou logs pessoais. Dados reais, se alguma etapa futura os utilizar localmente, exigem consentimento específico para o propósito e nunca são enviados automaticamente a Instagram/Meta. O aceite registrado em uma coluna não comprova por si só autorização legal. Resultados de sugestões não confirmam identidades.
+
+## Bibliotecas de referência (não instaladas)
 
 - https://github.com/subzeroid/instagrapi
 - https://github.com/subzeroid/aiograpi
 - https://github.com/dilame/instagram-private-api
 
-As bibliotecas acima são referências de pesquisa, não dependências instaladas nem garantias de funcionamento atual.
+As APIs privadas acima **não integram esta POC**. A API oficial da Meta não oferece pesquisa reversa genérica por telefone/e-mail.
