@@ -1,28 +1,31 @@
-# Idempotent Windows bootstrap, no CRM or Instagram calls.
+# Windows bootstrap. Idempotent; supports offline reruns after dependencies installed.
+param([switch]$SkipInstall)
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
-$root = Resolve-Path (Join-Path $PSScriptRoot "..")
+$root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Push-Location $root
 try {
-    if (-not (Get-Command py -ErrorAction SilentlyContinue)) { throw "Python launcher (py) not found. Install Python 3.11+." }
-    & py -3 -c "import sys; assert sys.version_info >= (3, 11), 'Python 3.11+ required'"
-    if ($LASTEXITCODE -ne 0) { throw "Python 3.11+ not available." }
-    & py -3 -m venv .venv
-    if ($LASTEXITCODE -ne 0) { throw "venv creation failed." }
     $python = Join-Path $root ".venv\Scripts\python.exe"
-    & $python -m pip install -e ".[test]"
-    if ($LASTEXITCODE -ne 0) { throw "Package installation failed." }
-    & $python -m pytest -q
-    if ($LASTEXITCODE -ne 0) { throw "Unit tests failed." }
-    $tempCsv = Join-Path ([System.IO.Path]::GetTempPath()) ("buscainsta-synthetic-" + [guid]::NewGuid().ToString("N") + ".csv")
-    try {
-        & $python -m buscainsta.cli sample --out $tempCsv --count 100
-        if ($LASTEXITCODE -ne 0) { throw "Synthetic generation failed." }
-        & $python -m buscainsta.cli validate --input $tempCsv --synthetic
-        if ($LASTEXITCODE -ne 0) { throw "Synthetic CSV validation failed." }
-    } finally {
-        if (Test-Path -LiteralPath $tempCsv) { Remove-Item -LiteralPath $tempCsv -Force }
+    if (-not (Test-Path -LiteralPath $python)) {
+        if ($SkipInstall) { throw "Missing venv. Run setup-windows.ps1 without -SkipInstall first." }
+        if (Get-Command python -ErrorAction SilentlyContinue) {
+            & python -m venv .venv
+        } elseif (Get-Command py -ErrorAction SilentlyContinue) {
+            & py -3 -m venv .venv
+        } else {
+            throw "Python not found. Install Python 3.11+ and ensure it is on PATH."
+        }
+        if ($LASTEXITCODE -ne 0) { throw "Virtual environment creation failed." }
     }
-    Write-Host "PASS: Windows offline POC; zero CRM/Instagram integrations. Safe to rerun."
+    & $python -c "import sys; assert sys.version_info >= (3,11), 'Python 3.11+ required'"
+    if ($LASTEXITCODE -ne 0) { throw "Python 3.11+ required." }
+    if (-not $SkipInstall) {
+        & $python -m pip install -e ".[test]"
+        if ($LASTEXITCODE -ne 0) { throw "Dependency installation failed. Confirm pip/network access." }
+    }
+    & (Join-Path $PSScriptRoot "verify-windows.ps1") -Python $python
+    if ($LASTEXITCODE -ne 0) { throw "Verification failed." }
+    Write-Output "PASS: setup complete. Repeat safely; use -SkipInstall after dependencies are installed."
 } finally {
     Pop-Location
 }
