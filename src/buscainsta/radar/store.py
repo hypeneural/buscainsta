@@ -94,6 +94,18 @@ def initialize(root: Path) -> None:
           likes INTEGER, comments INTEGER, views INTEGER
         );
         CREATE INDEX IF NOT EXISTS metric_post_time ON metric_snapshots(post_id,checked_at DESC);
+        CREATE TABLE IF NOT EXISTS comment_previews(
+          post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+          comment_id TEXT NOT NULL,
+          username TEXT NOT NULL DEFAULT '',
+          comment_text TEXT NOT NULL DEFAULT '',
+          created_at TEXT,
+          likes INTEGER,
+          reply_count INTEGER,
+          captured_at TEXT NOT NULL,
+          PRIMARY KEY(post_id,comment_id)
+        );
+        CREATE INDEX IF NOT EXISTS comment_previews_post ON comment_previews(post_id,created_at DESC);
         CREATE TABLE IF NOT EXISTS collection_runs(
           id INTEGER PRIMARY KEY, provider TEXT NOT NULL,
           started_at TEXT NOT NULL, finished_at TEXT NOT NULL,
@@ -103,6 +115,20 @@ def initialize(root: Path) -> None:
         """)
         con.execute("""INSERT OR IGNORE INTO post_identities(source,external_id,post_id)
             SELECT source,external_id,id FROM posts""")
+        # Additive schema migration for archives created by the previous Radar release.
+        for table, columns in {
+            "posts": {"shares": "INTEGER", "saves": "INTEGER", "plays": "INTEGER",
+                      "video_duration": "REAL", "media_product_type": "TEXT NOT NULL DEFAULT ''",
+                      "metadata_checked_at": "TEXT NOT NULL DEFAULT ''",
+                      "source_note": "TEXT NOT NULL DEFAULT ''"},
+            "metric_snapshots": {"shares": "INTEGER", "saves": "INTEGER", "plays": "INTEGER"},
+        }.items():
+            existing = {row["name"] for row in con.execute("PRAGMA table_info(" + table + ")")}
+            for name, definition in columns.items():
+                if name not in existing:
+                    con.execute("ALTER TABLE " + table + " ADD COLUMN " + name + " " + definition)
+        con.execute("CREATE INDEX IF NOT EXISTS posts_metadata_checked ON posts(metadata_checked_at)")
+
 
 def add_competitor(root: Path, username: str, name: str = "") -> None:
     username = username.lstrip("@").lower()
@@ -140,10 +166,22 @@ def upsert_post(root: Path, record: dict) -> int:
     permalink = str(record.get("permalink") or "")
     if permalink and not re.fullmatch(r"https://(www\.)?instagram\.com/[^\s]{1,350}",permalink):
         raise ValueError("Invalid Instagram permalink")
-    for k in ("likes","comments","views"):
+    metrics = {}
+    for k in ("likes","comments","views","shares","saves","plays"):
         val = record.get(k)
-        if val is not None and (type(val) is not int or val<0):
+        if val in (-1, None):
+            val = None  # Instagram can report -1 when a count is hidden.
+        if val is not None and (type(val) is not int or val < 0):
             raise ValueError("Invalid metric " + k)
+        metrics[k] = val
+    duration = record.get("video_duration")
+    if duration is not None and (type(duration) not in (float,int) or not 0 <= duration <= 86400):
+        raise ValueError("Invalid video duration")
+    product_type = str(record.get("media_product_type") or "")[:40]
+    previews = record.get("comment_previews")
+    if previews is not None and (not isinstance(previews,list) or len(previews)>20):
+        raise ValueError("Invalid comment previews")
+
     key = canonical_key(source,external_id,permalink)
     stamp = now()
     add_competitor(root,username)
@@ -172,12 +210,52 @@ def upsert_post(root: Path, record: dict) -> int:
         post_id = con.execute("SELECT id FROM posts WHERE canonical_key=?",(key,)).fetchone()["id"]
         con.execute("""INSERT OR IGNORE INTO post_identities(source,external_id,post_id)
                     VALUES(?,?,?)""", (source,external_id,post_id))
-        last = con.execute("""SELECT likes,comments,views FROM metric_snapshots
-          WHERE post_id=? ORDER BY id DESC LIMIT 1""",(post_id,)).fetchone()
-        metrics = tuple(record.get(k) for k in ("likes","comments","views"))
-        if any(v is not None for v in metrics) and (last is None or tuple(last)!=metrics):
-            con.execute("""INSERT INTO metric_snapshots(post_id,checked_at,likes,comments,views)
-                VALUES(?,?,?,?,?)""",(post_id,stamp,*metrics))
+        con.execute("""UPDATE posts SET
+            likes=COALESCE(?,likes),comments=COALESCE(?,comments),
+            views=COALESCE(?,views),shares=COALESCE(?,shares),
+            saves=COALESCE(?,saves),plays=COALESCE(?,plays),
+            video_duration=COALESCE(?,video_duration),
+            media_product_type=CASE WHEN ?<>'' THEN ? ELSE media_product_type END,
+            metadata_checked_at=?, source_note=CASE WHEN ?<>'' THEN ? ELSE source_note END
+            WHERE id=?""",
+            (metrics["likes"],metrics["comments"],metrics["views"],metrics["shares"],
+             metrics["saves"],metrics["plays"],duration,product_type,product_type,
+             stamp,str(record.get("source_note") or "")[:200],
+             str(record.get("source_note") or "")[:200],post_id))
+        current = con.execute("""SELECT likes,comments,views,shares,saves,plays
+                FROM posts WHERE id=?""", (post_id,)).fetchone()
+        last = con.execute("""SELECT likes,comments,views,shares,saves,plays
+                FROM metric_snapshots WHERE post_id=? ORDER BY id DESC LIMIT 1""",
+                (post_id,)).fetchone()
+        values = tuple(current)
+        if any(v is not None for v in values) and (last is None or tuple(last)!=values):
+            con.execute("""INSERT INTO metric_snapshots(
+                post_id,checked_at,likes,comments,views,shares,saves,plays)
+                VALUES(?,?,?,?,?,?,?,?)""",(post_id,stamp,*values))
+        if previews is not None:
+            for item in previews:
+                if not isinstance(item,dict):
+                    raise ValueError("Invalid comment preview item")
+                cid = str(item.get("id") or "").strip()
+                if not cid or len(cid)>120:
+                    raise ValueError("Invalid comment id")
+                author = str(item.get("username") or "")[:40]
+                content = str(item.get("text") or "")[:3000]
+                likes = item.get("likes")
+                replies = item.get("reply_count")
+                if any(val is not None and (type(val) is not int or val<0)
+                       for val in (likes,replies)):
+                    raise ValueError("Invalid comment metrics")
+                con.execute("""INSERT INTO comment_previews(
+                        post_id,comment_id,username,comment_text,created_at,
+                        likes,reply_count,captured_at) VALUES(?,?,?,?,?,?,?,?)
+                        ON CONFLICT(post_id,comment_id) DO UPDATE SET
+                        comment_text=excluded.comment_text,
+                        likes=COALESCE(excluded.likes,comment_previews.likes),
+                        reply_count=COALESCE(excluded.reply_count,comment_previews.reply_count),
+                        captured_at=excluded.captured_at""",
+                    (post_id,cid,author,content,item.get("created_at"),
+                     likes,replies,stamp))
         return post_id
 
 def sniff(path: Path) -> tuple[str,str]:
@@ -218,7 +296,11 @@ def archive_file(root: Path, original: Path) -> str:
                 shutil.copyfileobj(source,out,1024*1024)
                 out.flush()
                 os.fsync(out.fileno())
-            if hashlib.sha256(Path(tmp).read_bytes()).hexdigest()!=sha:
+            verification = hashlib.sha256()
+            with open(tmp,"rb") as check:
+                for block in iter(lambda:check.read(1024*1024),b""):
+                    verification.update(block)
+            if verification.hexdigest()!=sha:
                 raise OSError("Media changed during archive")
             os.replace(tmp,target)
         finally:
@@ -296,3 +378,41 @@ def record_run(root:Path, provider:str, start:str, status:str, imported:int=0,er
     with db_connect(root) as con:
         con.execute("""INSERT INTO collection_runs(provider,started_at,finished_at,status,imported,error_type)
               VALUES(?,?,?,?,?,?)""",(provider,start,now(),status,imported,error_type[:100]))
+
+def comment_previews(root: Path, post_id: int, limit: int = 20) -> list[dict]:
+    if not 1 <= limit <= 20:
+        raise ValueError("Invalid comment page size")
+    with db_connect(root) as con:
+        return [dict(x) for x in con.execute("""SELECT comment_id,username,comment_text,
+            created_at,likes,reply_count,captured_at
+            FROM comment_previews WHERE post_id=?
+            ORDER BY COALESCE(created_at,captured_at) DESC,comment_id DESC LIMIT ?""",
+            (post_id,limit))]
+
+
+def cache_report(root: Path, *, verify_hashes: bool=False) -> dict:
+    """Audit local media; no Instagram API calls or deletions."""
+    with db_connect(root) as con:
+        rows = [dict(x) for x in con.execute("SELECT sha256,relative_path,bytes FROM blobs")]
+    report = {"registered": len(rows), "available": 0, "missing": 0,
+              "corrupt": 0, "bytes": 0, "verified_sha256": bool(verify_hashes)}
+    base = private_root(root) / "blobs"
+    for row in rows:
+        path = (private_root(root) / row["relative_path"]).resolve()
+        if not path.is_relative_to(base) or not path.is_file():
+            report["missing"] += 1
+            continue
+        if path.stat().st_size != row["bytes"]:
+            report["corrupt"] += 1
+            continue
+        if verify_hashes:
+            digest = hashlib.sha256()
+            with path.open("rb") as source:
+                for block in iter(lambda:source.read(1024*1024),b""):
+                    digest.update(block)
+            if digest.hexdigest() != row["sha256"]:
+                report["corrupt"] += 1
+                continue
+        report["available"] += 1
+        report["bytes"] += row["bytes"]
+    return report
