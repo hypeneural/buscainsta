@@ -1,85 +1,188 @@
-"""Local-only, read-only Radar web server."""
-import argparse
-import json
-from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
-from pathlib import Path
-from urllib.parse import urlsplit,parse_qs
-from . import store
+"""Read-only media server with narrowly scoped, CSRF-protected local profile management."""
+from __future__ import annotations
 
-HTML=Path(__file__).with_name("static")/"radar.html"
+import argparse
+import hmac
+import json
+import re
+import secrets
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
+
+from . import query, store
+
+STATIC = Path(__file__).with_name("static")
+RANGE = re.compile(r"^bytes=(\d*)-(\d*)$")
+
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self,fmt,*args):
+    def log_message(self, fmt, *args):
+        # Do not leak sensitive paths, query strings or imported captions.
         pass
-    def send_json(self,payload,status=200):
-        data=json.dumps(payload,ensure_ascii=False).encode()
+
+    def _headers(self, status, mime, length, extras=None):
         self.send_response(status)
-        self.send_header("Content-Type","application/json; charset=utf-8")
-        self.send_header("Cache-Control","no-store")
-        self.send_header("X-Content-Type-Options","nosniff")
-        self.send_header("Content-Security-Policy","default-src 'none'; frame-ancestors 'none'")
-        self.send_header("Content-Length",str(len(data)))
+        self.send_header("Content-Type", mime)
+        self.send_header("Content-Length", str(length))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Cache-Control", "no-store")
+        for k, v in (extras or {}).items():
+            self.send_header(k, str(v))
         self.end_headers()
+
+    def send_json(self, payload, status=200):
+        data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self._headers(status, "application/json; charset=utf-8", len(data),
+            {"Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'"})
         self.wfile.write(data)
+
+    def _site_allowed(self):
+        return self.headers.get("Host", "") in {
+            f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"
+        }
+
+    def _static(self, path, mime):
+        data = path.read_bytes()
+        self._headers(200, mime, len(data), {
+            "Content-Security-Policy": "default-src 'self'; img-src 'self' data:; "
+            "media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; "
+            "frame-ancestors 'none'"
+        })
+        self.wfile.write(data)
+
+    def _blob(self, sha):
+        entry = store.get_blob(self.server.root, sha)
+        if entry is None:
+            return self.send_json({"error": "Arquivo não disponível"}, 404)
+        size = entry["bytes"]
+        start, end = 0, size - 1
+        value = self.headers.get("Range", "")
+        if value:
+            m = RANGE.fullmatch(value)
+            if not m or (not m.group(1) and not m.group(2)):
+                return self._range_error(size)
+            try:
+                if not m.group(1):
+                    suffix = int(m.group(2))
+                    if suffix <= 0:
+                        return self._range_error(size)
+                    start = max(0, size - suffix)
+                else:
+                    start = int(m.group(1))
+                    if m.group(2):
+                        end = int(m.group(2))
+                if start >= size or end < start:
+                    return self._range_error(size)
+                end = min(end, size - 1)
+            except ValueError:
+                return self._range_error(size)
+        count = end - start + 1
+        extra = {"Accept-Ranges": "bytes", "Cache-Control": "private, max-age=3600"}
+        if value:
+            extra["Content-Range"] = f"bytes {start}-{end}/{size}"
+        self._headers(206 if value else 200, entry["mime"], count, extra)
+        with entry["path"].open("rb") as content:
+            content.seek(start)
+            remaining = count
+            while remaining:
+                part = content.read(min(65536, remaining))
+                if not part:
+                    break
+                self.wfile.write(part)
+                remaining -= len(part)
+
+    def _range_error(self, size):
+        self._headers(416, "text/plain; charset=utf-8", 0,
+                      {"Content-Range": f"bytes */{size}"})
+
     def do_GET(self):
-        if self.headers.get("Host","").split(":")[0] not in ("127.0.0.1","localhost"):
-            return self.send_json({"error":"Local host only"},403)
+        if not self._site_allowed():
+            return self.send_json({"error": "Acesso exclusivamente local"}, 403)
         try:
-            parsed=urlsplit(self.path)
-            if parsed.path=="/":
-                data=HTML.read_bytes()
-                self.send_response(200)
-                self.send_header("Content-Type","text/html; charset=utf-8")
-                self.send_header("Cache-Control","no-store")
-                self.send_header("Content-Security-Policy","default-src 'self'; img-src 'self' data:; media-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'")
-                self.send_header("Content-Length",str(len(data)))
-                self.end_headers();self.wfile.write(data);return
-            if parsed.path=="/radar.js":
-                data=HTML.with_name("radar.js").read_bytes()
-                self.send_response(200);self.send_header("Content-Type","text/javascript; charset=utf-8")
-                self.send_header("Content-Length",str(len(data)));self.end_headers()
-                self.wfile.write(data);return
-            if parsed.path=="/api/competitors":
-                return self.send_json(store.list_competitors(self.server.root))
-            if parsed.path=="/api/stats":
-                return self.send_json(store.stats(self.server.root))
-            if parsed.path=="/api/posts":
-                q=parse_qs(parsed.query)
-                return self.send_json(store.list_posts(self.server.root,
-                   q.get("username",[""])[0],q.get("kind",[""])[0],
-                   int(q.get("limit",["40"])[0]),int(q.get("offset",["0"])[0])))
+            parsed = urlsplit(self.path)
+            if parsed.path == "/":
+                return self._static(STATIC / "radar.html", "text/html; charset=utf-8")
+            if parsed.path == "/radar.js":
+                return self._static(STATIC / "radar.js", "application/javascript; charset=utf-8")
+            if parsed.path == "/api/config":
+                return self.send_json({"csrf": self.server.csrf,
+                                       "timezone": "America/Sao_Paulo",
+                                       "mode": "offline_archive"})
+            if parsed.path == "/api/competitors":
+                return self.send_json(query.profiles(self.server.root))
+            if parsed.path == "/api/stats":
+                return self.send_json(query.overview(self.server.root))
+            if parsed.path == "/api/posts":
+                params = parse_qs(parsed.query)
+                def param(name, default=""):
+                    return params.get(name, [default])[0]
+                return self.send_json(query.search_posts(self.server.root,
+                    username=param("username"), kind=param("kind"),
+                    search=param("search"), from_date=param("from"),
+                    to_date=param("to"), sort=param("sort", "recent"),
+                    archived=param("archived", "all"),
+                    limit=int(param("limit", "40")), offset=int(param("offset", "0"))))
             if parsed.path.startswith("/api/blob/"):
-                sha=parsed.path.removeprefix("/api/blob/")
-                item=store.get_blob(self.server.root,sha)
-                if not item: return self.send_json({"error":"Not found"},404)
-                self.send_response(200)
-                self.send_header("Content-Type",item["mime"])
-                self.send_header("Content-Length",str(item["bytes"]))
-                self.send_header("X-Content-Type-Options","nosniff")
-                self.send_header("Cache-Control","private, max-age=3600")
-                self.end_headers()
-                with item["path"].open("rb") as media:
-                    while part:=media.read(65536):
-                        self.wfile.write(part)
-                return
-            return self.send_json({"error":"Not found"},404)
-        except (ValueError,TypeError):
-            return self.send_json({"error":"Invalid request"},400)
-        except (OSError, BrokenPipeError):
-            return self.send_json({"error":"Media unavailable"},404)
+                return self._blob(parsed.path.removeprefix("/api/blob/"))
+            return self.send_json({"error": "Não encontrado"}, 404)
+        except (ValueError, TypeError, OverflowError):
+            return self.send_json({"error": "Filtro ou paginação inválidos"}, 400)
+        except OSError:
+            return self.send_json({"error": "Acervo local indisponível"}, 503)
+
     def do_POST(self):
-        return self.send_json({"error":"Read-only. Import via local CLI."},405)
+        if not self._site_allowed():
+            return self.send_json({"error": "Acesso exclusivamente local"}, 403)
+        origin = self.headers.get("Origin", "")
+        allowed = f"http://{self.headers.get('Host')}"
+        if (origin != allowed or self.headers.get("Content-Type", "").split(";")[0] != "application/json"
+                or not hmac.compare_digest(self.headers.get("X-Radar-CSRF", ""), self.server.csrf)):
+            return self.send_json({"error": "Requisição não autorizada"}, 403)
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 4096:
+                return self.send_json({"error": "Tamanho de requisição inválido"}, 413)
+            data = json.loads(self.rfile.read(length).decode("utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("Invalid JSON body")
+            if self.path == "/api/competitors":
+                result = query.add_profile(self.server.root,
+                                           str(data["username"]), str(data.get("name", "")))
+            elif self.path == "/api/competitors/status":
+                result = query.set_profile(self.server.root, str(data["username"]), data["enabled"])
+            else:
+                return self.send_json({"error": "Rota inexistente"}, 404)
+            return self.send_json(result, 200)
+        except (ValueError, KeyError, TypeError, UnicodeError, json.JSONDecodeError):
+            return self.send_json({"error": "Dados inválidos ou perfil inexistente"}, 400)
+        except OSError:
+            return self.send_json({"error": "Falha de armazenamento local"}, 503)
+
+
+def create_server(root: Path, port: int = 8766):
+    store.initialize(root)
+    http = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    http.root = store.private_root(root)
+    http.csrf = secrets.token_urlsafe(32)
+    http.daemon_threads = True
+    return http
+
 
 def main():
-    parser=argparse.ArgumentParser()
-    parser.add_argument("--root",type=Path,default=Path.home()/"BuscaInstaRadar")
-    parser.add_argument("--port",type=int,default=8766)
-    args=parser.parse_args()
-    if not 1024<=args.port<=65535:parser.error("Invalid port")
-    store.initialize(args.root)
-    with ThreadingHTTPServer(("127.0.0.1",args.port),Handler) as http:
-        http.root=store.private_root(args.root)
-        print(f"Radar: http://127.0.0.1:{args.port}/",flush=True)
+    parser = argparse.ArgumentParser(description="BuscaInsta Radar local dashboard")
+    parser.add_argument("--root", type=Path, default=Path.home() / "BuscaInstaRadar")
+    parser.add_argument("--port", type=int, default=8766)
+    args = parser.parse_args()
+    if not 1024 <= args.port <= 65535:
+        parser.error("Porta inválida")
+    with create_server(args.root, args.port) as http:
+        print(f"Radar: http://127.0.0.1:{http.server_port}/", flush=True)
         http.serve_forever()
 
-if __name__=="__main__":main()
+
+if __name__ == "__main__":
+    main()
