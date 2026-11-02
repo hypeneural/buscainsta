@@ -31,7 +31,10 @@ MEDIA_TYPE = {
 
 
 def normalize_payload(username: str, payload: dict) -> list[dict]:
-    entries = payload.get("media", {}).get("data", [])
+    media_edge = payload.get("media") or {}
+    if not isinstance(media_edge, dict):
+        raise ProviderError("Unexpected Meta media format")
+    entries = media_edge.get("data", [])
     if not isinstance(entries, list):
         raise ProviderError("Meta response is missing expected media list")
     posts = []
@@ -50,7 +53,8 @@ def normalize_payload(username: str, payload: dict) -> list[dict]:
         if instant.tzinfo is None:
             raise ProviderError("Meta publication timestamp missing timezone")
         assets = []
-        children = media.get("children", {}).get("data", []) if kind == "carousel" else [media]
+        child_edge = media.get("children") or {}
+        children = child_edge.get("data", []) if kind == "carousel" and isinstance(child_edge, dict) else ([media] if kind != "carousel" else [])
         if not isinstance(children, list):
             children = []
         for child in children[:100]:
