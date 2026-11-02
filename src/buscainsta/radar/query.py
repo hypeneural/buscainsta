@@ -147,9 +147,19 @@ def search_posts(root, *, username: str = "", kind: str = "", search: str = "",
                 row["local_url"] = "/api/blob/" + row["sha256"] if row["sha256"] else None
                 # Remote URLs stay references, never auto-loaded by the browser.
                 assets.setdefault(row["post_id"], []).append(row)
+        comments_by_post = {}
+        if ids:
+            placeholders = ",".join("?" for _ in ids)
+            for node in db.execute("""SELECT post_id,comment_id,username,comment_text,
+                 created_at,likes,reply_count FROM comment_previews
+                 WHERE post_id IN (""" + placeholders + """)
+                 ORDER BY COALESCE(created_at,captured_at) DESC,comment_id DESC""", ids):
+                group = comments_by_post.setdefault(node["post_id"], [])
+                if len(group) < 10:
+                    group.append(dict(node))
         for post in result:
             post["assets"] = assets.get(post["id"], [])
-            post["comment_previews"] = store.comment_previews(root, post["id"], limit=10)
+            post["comment_previews"] = comments_by_post.get(post["id"], [])
             post["locally_archived"] = any(a["sha256"] for a in post["assets"])
         return {"items": result, "total": total, "offset": offset,
                 "limit": limit, "has_more": offset + len(result) < total}
