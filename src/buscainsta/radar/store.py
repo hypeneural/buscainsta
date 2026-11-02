@@ -68,6 +68,12 @@ def initialize(root: Path) -> None:
         );
         CREATE INDEX IF NOT EXISTS posts_time ON posts(posted_at DESC,id DESC);
         CREATE INDEX IF NOT EXISTS posts_profile_time ON posts(username,posted_at DESC);
+        CREATE TABLE IF NOT EXISTS post_identities(
+          source TEXT NOT NULL, external_id TEXT NOT NULL,
+          post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+          PRIMARY KEY(source,external_id)
+        );
+        CREATE INDEX IF NOT EXISTS post_identity_post ON post_identities(post_id);
         CREATE TABLE IF NOT EXISTS blobs(
           sha256 TEXT PRIMARY KEY, relative_path TEXT NOT NULL UNIQUE,
           mime TEXT NOT NULL, bytes INTEGER NOT NULL, stored_at TEXT NOT NULL
@@ -95,6 +101,8 @@ def initialize(root: Path) -> None:
           error_type TEXT NOT NULL DEFAULT ''
         );
         """)
+        con.execute("""INSERT OR IGNORE INTO post_identities(source,external_id,post_id)
+            SELECT source,external_id,id FROM posts""")
 
 def add_competitor(root: Path, username: str, name: str = "") -> None:
     username = username.lstrip("@").lower()
@@ -140,6 +148,11 @@ def upsert_post(root: Path, record: dict) -> int:
     stamp = now()
     add_competitor(root,username)
     with db_connect(root) as con:
+        previously = con.execute("""SELECT p.canonical_key FROM post_identities i
+                JOIN posts p ON p.id=i.post_id
+                WHERE i.source=? AND i.external_id=?""", (source, external_id)).fetchone()
+        if previously:
+            key = previously["canonical_key"]
         con.execute("""INSERT INTO posts(canonical_key,source,external_id,username,kind,caption,
               permalink,posted_at,first_seen_at,last_seen_at,expires_at,likes,comments,views,cover_url)
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
@@ -157,6 +170,8 @@ def upsert_post(root: Path, record: dict) -> int:
              record.get("likes"),record.get("comments"),record.get("views"),
              str(record.get("cover_url") or "")[:1600]))
         post_id = con.execute("SELECT id FROM posts WHERE canonical_key=?",(key,)).fetchone()["id"]
+        con.execute("""INSERT OR IGNORE INTO post_identities(source,external_id,post_id)
+                    VALUES(?,?,?)""", (source,external_id,post_id))
         last = con.execute("""SELECT likes,comments,views FROM metric_snapshots
           WHERE post_id=? ORDER BY id DESC LIMIT 1""",(post_id,)).fetchone()
         metrics = tuple(record.get(k) for k in ("likes","comments","views"))
@@ -241,6 +256,8 @@ def get_blob(root: Path, sha: str):
         return None
     path=(private_root(root)/row["relative_path"]).resolve()
     if not path.is_relative_to(private_root(root)/"blobs") or not path.is_file():
+        return None
+    if path.stat().st_size != row["bytes"]:
         return None
     return {"path":path,"mime":row["mime"],"bytes":row["bytes"]}
 
