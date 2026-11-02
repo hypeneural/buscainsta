@@ -52,3 +52,7 @@ py -3.12 -m venv .venv-live
 ```
 
 O comando nunca salva ou imprime nomes de perfis retornados: informa somente se o username esperado apareceu, número de sugestões e se a desconexão foi concluída. **Não execute 100 uploads em sequência**; primeiro determine se o mecanismo realmente funciona e se seu uso é permitido. Veja [protocolo de campo](docs/REAL_MVP.md).
+
+## Painel local: foto, seguidores, confirmação e Direct
+
+Implementado um painel local com botões de revisão e Direct individual, SQLite privado e foto de perfil. Veja [docs/DASHBOARD.md](docs/DASHBOARD.md). O painel não faz envios automáticos nem grava dados de clientes no GitHub.

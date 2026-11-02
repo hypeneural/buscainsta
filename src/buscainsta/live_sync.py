@@ -104,65 +104,45 @@ def match_user_to_contact(
     user_item: object,
     contacts: list[dict[str, str]],
 ) -> Optional[str]:
-    """Determine if a user object matches one of the submitted contacts.
+    """Return a *unique candidate* only; never choose the first similar name.
 
-    Returns the matched contact_id or None.
-    Matching priority:
-    1. extra_display_name (Meta's matched address-book name) exact match (accent-insensitive).
-    2. full_name exact match (accent-insensitive).
-    3. Token overlap of first and last name (at least 2 tokens).
-    4. First and last name exact match (for shortened display names).
-    5. Clean username matches email local part.
+    Matching is an unconfirmed suggestion, not proof of the person's identity.
+    If multiple CRM contacts fit the best available signal, return None.
     """
-    raw_user = get_user_field(user_item, "username")
-    clean_user = username(raw_user)
+    clean_user = username(get_user_field(user_item, "username"))
     if not clean_user:
         return None
-
-    extra_name = strip_accents(get_user_field(user_item, "extra_display_name").strip().casefold())
-    profile_full_name = strip_accents(get_user_field(user_item, "full_name").strip().casefold())
-    profile_tokens = normalize_tokens(profile_full_name)
-
-    # 1. Match via extra_display_name
-    if extra_name:
-        for c in contacts:
-            c_name = strip_accents(c.get("full_name", "").strip().casefold())
-            if c_name and c_name == extra_name:
-                return c["contact_id"]
-
-    # 2. Match via full_name exact match (accent-insensitive)
-    if profile_full_name:
-        for c in contacts:
-            c_name = strip_accents(c.get("full_name", "").strip().casefold())
-            if c_name and c_name == profile_full_name:
-                return c["contact_id"]
-
-    # 3. Match via token overlap (c_tokens subset of profile_tokens or vice versa)
-    if len(profile_tokens) >= 2:
-        for c in contacts:
-            c_tokens = normalize_tokens(c.get("full_name", ""))
-            if len(c_tokens) >= 2 and (c_tokens.issubset(profile_tokens) or profile_tokens.issubset(c_tokens)):
-                return c["contact_id"]
-
-    # 4. Match via first name + last name exact match
-    if profile_full_name:
-        p_parts = [t for t in profile_full_name.split() if t not in STOP_TOKENS and len(t) >= 2]
-        if len(p_parts) >= 2:
-            for c in contacts:
-                c_parts = [t for t in strip_accents(c.get("full_name", "").casefold()).split() if t not in STOP_TOKENS and len(t) >= 2]
-                if len(c_parts) >= 2 and c_parts[0] == p_parts[0] and c_parts[-1] == p_parts[-1]:
-                    return c["contact_id"]
-
-    # 5. Match via clean username matching email prefix
-    u_norm = clean_user.replace(".", "").replace("_", "").replace("-", "")
-    if len(u_norm) >= 4:
-        for c in contacts:
-            email = c.get("email", "").casefold()
-            if "@" in email:
-                local = email.split("@", 1)[0].replace(".", "").replace("_", "").replace("-", "")
-                if local and len(local) >= 4 and local == u_norm:
-                    return c["contact_id"]
-
+    extra = strip_accents(get_user_field(
+        user_item, "extra_display_name").strip().casefold())
+    profile = strip_accents(get_user_field(
+        user_item, "full_name").strip().casefold())
+    tokens = normalize_tokens(profile)
+    parts = [v for v in profile.split()
+             if v not in STOP_TOKENS and len(v) >= 2]
+    user_local = clean_user.replace(".", "").replace("_", "")
+    # Strict priority, not fuzzy scoring. Ambiguity at the strongest tier
+    # cannot safely be resolved by falling back to a weaker signal.
+    strategies = [
+        lambda c: bool(extra) and strip_accents(
+            c.get("full_name", "").strip().casefold()) == extra,
+        lambda c: bool(profile) and strip_accents(
+            c.get("full_name", "").strip().casefold()) == profile,
+        lambda c: len(tokens) >= 2 and len(normalize_tokens(c.get("full_name", ""))) >= 2
+            and (normalize_tokens(c.get("full_name", "")).issubset(tokens)
+                 or tokens.issubset(normalize_tokens(c.get("full_name", "")))),
+        lambda c: len(parts) >= 2 and (
+            lambda cp: len(cp) >= 2 and cp[0] == parts[0] and cp[-1] == parts[-1]
+        )([v for v in strip_accents(c.get("full_name", "").casefold()).split()
+           if v not in STOP_TOKENS and len(v) >= 2]),
+        lambda c: len(user_local) >= 4 and bool(c.get("email")) and
+            c["email"].split("@", 1)[0].casefold().replace(".", "").replace("_", "") == user_local,
+    ]
+    for rule in strategies:
+        ids = {c["contact_id"] for c in contacts if rule(c)}
+        if len(ids) == 1:
+            return next(iter(ids))
+        if len(ids) > 1:
+            return None
     return None
 
 
@@ -178,8 +158,11 @@ def run_sync(
     search_unmatched: bool = True,
     search_delay: float = 1.2,
     max_contacts: int = 2000,
+    max_search: int = 100,
 ) -> dict:
     """Execute batch address book link, fetch suggestions, search remaining, and update review CSV."""
+    if not (1 <= batch_size <= 100 and 0 <= max_search <= 5000):
+        raise ValueError("Invalid batch or search limit.")
     if not contacts_path.is_file():
         raise ValueError("Contacts CSV not found.")
     if not review_path.is_file():
@@ -261,7 +244,10 @@ def run_sync(
     matched_from_search = 0
     if search_unmatched and hasattr(cl, "search_users"):
         contacts_by_id = {c["contact_id"]: c for c in contacts}
+        searched = 0
         for row in review_rows:
+            if searched >= max_search:
+                break
             if row.get("status") != "pending" or row.get("candidate_username"):
                 continue
 
@@ -269,6 +255,7 @@ def run_sync(
             if not c or not c.get("full_name"):
                 continue
 
+            searched += 1
             full_name = c["full_name"].strip()
             c_name = strip_accents(full_name.casefold())
             c_tokens = normalize_tokens(full_name)
@@ -304,7 +291,7 @@ def run_sync(
                             elif len(c_parts) >= 2 and len(res_parts) >= 2 and c_parts[0] == res_parts[0] and c_parts[-1] == res_parts[-1]:
                                 is_match = True
 
-                            if is_match:
+                            if is_match and match_user_to_contact(res_user, contacts) == row["contact_id"]:
                                 row["candidate_username"] = u
                                 row["discovery_method"] = "name_search"
                                 row["status"] = "candidate"
@@ -383,6 +370,7 @@ def main() -> None:
             keep_linked=args.keep_linked,
             search_unmatched=not args.no_search,
             max_contacts=5000,
+            max_search=args.limit_search,
         )
         print(json.dumps(result, sort_keys=True))
         if result["unlink"] == "failed":

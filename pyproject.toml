@@ -16,9 +16,13 @@ live = ["instagrapi>=3.2,<4"]
 [project.scripts]
 buscainsta = "buscainsta.cli:main"
 buscainsta-pilot = "buscainsta.pilot:main"
+buscainsta-dashboard = "buscainsta.dashboard:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+buscainsta = ["static/*.html"]

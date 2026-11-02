@@ -1,17 +1,16 @@
-# Prompt operacional — Antigravity /real-pilot (31/10/2026)
+# Antigravity — Fase Dashboard BuscaInsta
 
-Repositório `hypeneural/buscainsta`, branch `feat/windows-offline-poc-bootstrap`, PR #1 em Draft.
+Repositório: hypeneural/buscainsta; branch: feat/windows-offline-poc-bootstrap; PR #1 Draft; issue #4.
 
-**Contexto:** O Windows 11 físico já homologou SHA `76345c6`, pytest 57 PASS e 100/100 sintéticos. **Não refazer a mesma fase sem motivo**. Agora preciso avançar para uma MVP REAL, inicialmente manual e auditável, com até 100 contatos especificamente autorizados.
+1. Verifique git status -sb, git log -3 --oneline. Atualize por git fetch origin + git pull --ff-only somente se árvore limpa. Não descartar trabalho local nem force-push.
+2. Leia apenas AGENTS.md, docs/DASHBOARD.md, src/buscainsta/dashboard.py, dashboard_store.py, instagram_actions.py e tests/test_dashboard.py. Se matching precisar ser depurado, ler live_sync.py e tests/test_live_sync.py.
+3. Rodar .\.venv\Scripts\python.exe -m pytest -q tests/test_dashboard.py tests/test_live_sync.py e depois pytest -q completo. Verificar CI da SHA FINAL em Windows/Ubuntu Python 3.11 e 3.12.
+4. No Windows iniciar painel OFFLINE, com CSV privado: .\.venv\Scripts\python.exe -m buscainsta.dashboard --db "C:\BuscaInstaPrivado\buscainsta.db" --contacts "C:\BuscaInstaPrivado\contatos.csv" --account estudio_teste. Abrir http://127.0.0.1:8765/.
+5. Validar busca/paginação, editar @, foto ausente, status de seguidores unknown, marcação manual É o cliente e permissão Direct; capturar somente evidência com nomes fictícios.
+6. Validar matching com dois clientes de mesmo nome: não pode selecionar arbitrariamente o primeiro. Validar que --limit-search realmente é aplicado e que follow não é invertido.
+7. Para consulta real APENAS quando operador autorizar, configurar credenciais da conta de teste via variáveis privadas, ativar --enable-instagram e clicar em Consultar para 1 @ próprio ou voluntário. O Chrome logado não substitui a sessão Python.
+8. Para Direct, testar primeiro somente FakeClient: confirmação/opt-in/candidato/consulta, botão individual e horário de tentativa e aceite. NÃO disparar mensagens reais no teste automático. O modo real necessita --enable-dm --enable-instagram e --message-file com texto fixo local, e autorização individual. Mensagem pode cair em solicitações ou falhar; status desconhecido sem retry.
+9. Para várias contas, NÃO compartilhar o mesmo DB mudando --account: usar um DB por conta enquanto não existir schema multi-conta.
+10. Corrigir somente falhas reproduzidas, novos testes de regressão, reportar SHA, CI, Windows/Python, logs sanitizados e P0/P1/P2. Não anexar PII/cookies/senhas/CSV à PR. Manter Draft e não fazer merge.
 
-1. Confirme `git status -sb`, branch e HEAD. Se houver mudanças locais, preserve-as. `git fetch origin` e somente com árvore limpa use `git pull --ff-only`.
-2. Leia `AGENTS.md` e ative `/real-pilot`; leia `docs/REAL_MVP.md` e `src/buscainsta/pilot.py`, **não** toda documentação histórica. Aplique o princípio de progressive disclosure e não crie workflows legados.
-3. Rode `.\.venv\Scripts\python.exe -m pytest -q tests/test_pilot.py`, depois a suíte completa. Confirme o CI na SHA atual; corrija erros pequenos na branch com regressão, sem alterações em CRM produção.
-4. Preparar piloto local real: a fonte de dados do CRM deve ser mapeada **somente no Windows**, em pasta privada fora do GitHub; confirmar autorização específica por contato. O modelo é `contact_id,full_name,phone,email,instagram,consent,consent_date,consent_source`.
-5. Use `python -m buscainsta.pilot prepare` para gerar a planilha de revisão privada. Teste pesquisa nominal, sugestões nativas do Instagram (somente com autorização de compartilhar contatos) e respostas voluntárias dos clientes; registre candidatos separadamente de confirmados.
-6. Use `python -m buscainsta.pilot summarize` para métricas sem dados pessoais. Teste primeiro voluntários com @ conhecido para aferir precisão. Não alegue que sugestões por contato identificam uma pessoa inequivocamente.
-7. Teste de conexão opcional: audite `src/buscainsta/live_probe.py` e `tests/test_live_probe.py`. Esse módulo implementa **um contato voluntário por execução** usando `instagrapi.address_book_link` e tenta desfazer com `address_book_unlink`. Valide primeiro apenas com mocks. Para a chamada real, peça confirmação explícita de conta de teste própria, consentimento específico do voluntário e revisão das condições Meta; **não execute automaticamente** por conta própria. Use `.venv-live`, segredos somente em variáveis de ambiente e teste com `--confirm-contact-sharing`. Nunca registrar retorno bruto/usuários em logs e nunca confundir sugestão com prova de identidade. Se não houver autorização, informe que o teste real da API está pendente, mas complete o piloto manual.
-8. Entregue relatório: SHA, Python/Windows, testes, total de registros autorizados, quantos revisados, candidatos e confirmados, falso positivo conhecido, bloqueios, próximos ajustes; não inclua nomes, emails, números, usernames, screenshots de clientes ou CSVs no GitHub.
-9. Deixe PR em Draft; não refatore o CLI homologado sem falha reproduzível, não force-push, não faça merge automático.
-
-**Objetivo de saída:** prova operacional com contatos reais autorizados e resultado de revisão, não mais uma re-homologação sintética. **Limitação:** o projeto ainda não tem API que devolva @ diretamente de telefone/e-mail.
+Objetivo: painel utilizável com foto e seguidores por perfil, checkbox de conferência manual e botão de mensagem fixa com data/hora verificável, sem envios em massa.

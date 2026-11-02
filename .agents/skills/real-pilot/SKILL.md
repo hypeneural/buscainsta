@@ -22,3 +22,6 @@ description: Executa MVP real BuscaInsta no Windows com até 100 contatos autori
 
 NUNCA mostrar o CSV real no chat, GitHub, logs ou exemplos. O output é agregado, não envia contatos.
 Antes do piloto, leia apenas `docs/REAL_MVP.md` e `src/buscainsta/pilot.py` (se precisar depurar). Não rodar repetidamente setup/pip sem necessidade.
+
+## Painel local
+Para ações de foto/follow/Direct, consultar docs/DASHBOARD.md e executar pytest focal tests/test_dashboard.py tests/test_live_sync.py. Habilitar --enable-instagram só em testes individuais autorizados; --enable-dm apenas para envio individual aprovado, com mensagem fixa e prévia. Teste automático sempre mockado. Não usar UI para disparos em massa.

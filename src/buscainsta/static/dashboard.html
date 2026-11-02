@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="referrer" content="no-referrer"/>
+<meta name="csrf-token" content="__CSRF_TOKEN__"/>
+<title>BuscaInsta · Revisão de clientes</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#172b40;background:#f4f6f9;font-size:14px}
+*{box-sizing:border-box}body{margin:0}header{background:#fff;border-bottom:1px solid #dbe1e8;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:23px;font-weight:750}h2{font-size:16px;margin:0 0 10px}.sub{color:#627286;margin-top:4px}
+main{max-width:1620px;margin:auto;padding:22px}.panel{background:white;border:1px solid #e0e5ec;border-radius:12px;padding:16px;margin-bottom:16px}
+.note{background:#f0f5fa;padding:10px;border-radius:8px;color:#314d6f}
+.tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+input[type=search]{min-width:280px;max-width:480px;width:45%;padding:10px;border:1px solid #b7c4d4;border-radius:8px;font-size:14px}
+button{background:#f2f5fa;border:1px solid #b8c5d3;border-radius:8px;padding:7px 10px;cursor:pointer;font-weight:600;color:#173751}
+button.primary{background:#1d4f84;border-color:#1d4f84;color:#fff}button.danger{background:#fff4ef;border-color:#d4a293;color:#8c311d}
+button:disabled{opacity:.42;cursor:not-allowed}
+small{color:#64758a}.table-wrap{overflow-x:auto}.table-wrap table{border-collapse:collapse;width:100%;min-width:1330px}
+th,td{padding:10px 8px;border-bottom:1px solid #e5e9ee;text-align:left;vertical-align:middle;white-space:nowrap}
+th{background:#f6f8fb;position:sticky;top:0;color:#344b66;font-size:12px}
+td .muted{color:#738194}td .small{font-size:12px}
+img.avatar{width:48px;height:48px;border-radius:50%;object-fit:cover;background:#e6ecf1;border:1px solid #dae2ea}
+.actions{display:flex;gap:5px;flex-wrap:wrap;min-width:190px}
+label.toggle{display:flex;align-items:center;gap:5px;white-space:nowrap}
+label.toggle input{width:16px;height:16px}
+.status{font-size:12px;border-radius:16px;padding:4px 8px;background:#edf1f5;display:inline-block}
+.status.yes{color:#126342;background:#e7f7ed}.status.no{color:#8c312b;background:#fff0ef}.status.unknown{color:#5b6878}
+#notice{min-height:30px;color:#174c76;font-weight:600}
+#notice.error{color:#b1272c}
+a{color:#1e64a2;text-decoration:none}a:hover{text-decoration:underline}
+footer{padding:16px 0;color:#627286}#page{font-weight:700}code{background:#e9edf3;padding:3px;border-radius:5px}
+</style>
+</head>
+<body>
+<header>
+<div><h1>BuscaInsta <span style="color:#5480ac">· Painel local</span></h1>
+<div class="sub">Revisão de perfis, seguidores, foto e Direct individual</div></div>
+<div id="account" class="sub">Carregando configuração…</div>
+</header>
+<main>
+<section class="panel">
+<h2>Mensagem fixa do Direct</h2>
+<p class="note" id="message">Carregando…</p>
+<p class="sub">O painel apenas envia a mensagem após confirmar manualmente o perfil, assinalar a permissão de contato e aprovar cada envio. Aceite da API não comprova leitura/entrega.</p>
+</section>
+<section class="panel tools">
+<input type="search" id="search" placeholder="Buscar por nome, ID ou @Instagram" aria-label="Buscar contatos"/>
+<button id="searchBtn" class="primary">Pesquisar</button>
+<span id="summary"></span><span style="flex:1"></span>
+<button id="prev">Anterior</button><span id="page">1</span><button id="next">Próxima</button>
+</section>
+<section id="notice" aria-live="polite"></section>
+<section class="panel table-wrap">
+<table>
+<thead><tr>
+<th>Foto</th><th>Cliente do CRM</th><th>Perfil / situação</th>
+<th>Nos segue?</th><th>Seguimos?</th><th>Conferido?</th>
+<th>Permissão Direct</th><th>Último Direct / horário</th><th>Ações</th>
+</tr></thead>
+<tbody id="rows"><tr><td colspan="9">Carregando dados…</td></tr></tbody>
+</table>
+</section>
+<footer>Dados privados no computador. Resultados de busca por nome ou sugestão não são comprovação de identidade. Estado “desconhecido” não significa “não segue”.</footer>
+</main>
+<script>
+"use strict";
+const csrf=document.querySelector('meta[name="csrf-token"]').content;
+const tbody=document.getElementById("rows");
+let config={},page=1,total=0,query="";
+const byId=id=>document.getElementById(id);
+const el=(name,text,classname)=>{const node=document.createElement(name);if(text!==undefined&&text!==null)node.textContent=String(text);if(classname)node.className=classname;return node;};
+const td=(tr)=>{const x=el("td");tr.appendChild(x);return x;};
+const message=(s,bad=false)=>{const n=byId("notice");n.textContent=s;n.className=bad?"error":"";};
+async function api(url,opts){const response=await fetch(url,{cache:"no-store",...opts});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||"Operação indisponível");return data;}
+async function post(id,action,payload){try{message("Executando…");await api("/api/contacts/"+encodeURIComponent(id)+"/"+action,{method:"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},body:JSON.stringify(payload)});message("Atualizado.");await load();}catch(e){message(e.message,true);await load();}}
+function statusLabel(v){return v==="yes"?"Sim":v==="no"?"Não":"Desconhecido";}
+function stamp(v){if(!v)return "—";const d=new Date(v);return isNaN(d)?"—":d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});}
+function button(parent,label,callback,disabled=false,cls=""){const b=el("button",label,cls);b.type="button";b.disabled=disabled;b.onclick=callback;parent.appendChild(b);return b;}
+function toggle(parent,label,checked,disabled,callback){const wrapper=el("label",undefined,"toggle");const c=el("input");c.type="checkbox";c.checked=!!checked;c.disabled=disabled;c.onchange=()=>callback(c.checked);wrapper.append(c,el("span",label));parent.appendChild(wrapper);}
+function renderItem(item){
+ const tr=el("tr");
+ const pic=td(tr);if(item.photo_local){const img=el("img");img.className="avatar";img.alt="Foto do perfil";img.loading="lazy";img.src="/api/avatar?cid="+encodeURIComponent(item.contact_id);pic.appendChild(img);}else pic.appendChild(el("span","Sem foto","muted small"));
+ const person=td(tr);person.append(el("strong",item.full_name),el("div",item.contact_id,"muted small"),el("div",item.phone||"Sem telefone","small"),el("div",item.email||"Sem e-mail","muted small"));
+ const profile=td(tr);if(item.candidate_username){const link=el("a","@"+item.candidate_username);link.href="https://www.instagram.com/"+encodeURIComponent(item.candidate_username)+"/";link.target="_blank";link.rel="noopener noreferrer";profile.append(link,el("div",item.instagram_name||item.discovery_method||"Candidato","small"));}else profile.append(el("span","Não encontrado","muted"));
+ profile.append(el("div",item.manually_verified?"Marcado como conferido pelo operador":item.status,"muted small"));
+ const followers=td(tr),followed=td(tr);
+ for(const [cell,val] of [[followers,item.follows_us],[followed,item.we_follow]]){const badge=el("span",statusLabel(val),"status "+val);cell.append(badge,el("div",item.checked_account?("Conta: "+item.checked_account):"Não consultado","muted small"));}
+ const verified=td(tr);toggle(verified,"É o cliente",!!item.manually_verified,!item.candidate_username,(v)=>post(item.contact_id,"verify",{value:v}));
+ const permission=td(tr);toggle(permission,"Autorizado",!!item.dm_permitted,!item.manually_verified,(v)=>post(item.contact_id,"direct-permission",{value:v}));
+ const delivery=td(tr);delivery.append(el("div",item.last_dm_status||"never","small"),el("div",item.last_dm_accepted_at?"Aceite: "+stamp(item.last_dm_accepted_at):item.last_dm_attempt_at?"Tentativa: "+stamp(item.last_dm_attempt_at):"Nunca enviado","muted small"));
+ const actions=td(tr),wrap=el("div",undefined,"actions");actions.appendChild(wrap);
+ button(wrap,"Editar @",()=>{const value=prompt("Informe o @username candidato",item.candidate_username||"");if(value!==null&&value.trim())post(item.contact_id,"candidate",{username:value.trim()});});
+ button(wrap,"Consultar foto/seguidores",()=>post(item.contact_id,"inspect",{}),!config.read_enabled||!item.candidate_username);
+ const canSend=config.direct_enabled&&item.manually_verified&&item.dm_permitted&&item.instagram_pk&&item.checked_account===config.account&&item.last_dm_status==="never";
+ button(wrap,"Enviar Direct",()=>{if(confirm("Enviar esta mensagem fixa ao perfil @"+item.candidate_username+"?\n\n"+config.fixed_message+"\n\nO envio pode falhar ou virar uma solicitação de mensagem."))post(item.contact_id,"send-direct",{confirm:true});},!canSend,"danger");
+ return tr;
+}
+async function load(){
+ try{const v=await api("/api/contacts?"+new URLSearchParams({q:query,page:String(page)}));total=v.total;tbody.replaceChildren();if(!v.items.length){const tr=el("tr");td(tr).textContent="Nenhum cliente encontrado.";tbody.appendChild(tr);}else for(const item of v.items)tbody.appendChild(renderItem(item));byId("summary").textContent=total+" contatos";byId("page").textContent="Página "+v.page;byId("prev").disabled=page<=1;byId("next").disabled=page*v.limit>=total;}catch(e){message(e.message,true);}
+}
+async function init(){try{config=await api("/api/config");byId("message").textContent=config.fixed_message;byId("account").textContent="Conta: "+config.account+" | Consulta: "+(config.read_enabled?"ativada":"desativada")+" | Direct: "+(config.direct_enabled?"ativado":"desativado");await load();}catch(e){message(e.message,true);}}
+byId("searchBtn").onclick=()=>{page=1;query=byId("search").value.trim();load();};
+byId("search").addEventListener("keydown",e=>{if(e.key==="Enter")byId("searchBtn").click();});
+byId("prev").onclick=()=>{if(page>1){page--;load();}};
+byId("next").onclick=()=>{if(page*50<total){page++;load();}};
+init();
+</script>
+</body></html>

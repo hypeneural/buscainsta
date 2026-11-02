@@ -18,3 +18,11 @@ Projeto: MVP Windows 11 para **avaliar** se contatos autorizados podem ser assoc
 - **Contratos:** `docs/VALIDATION_CONTRACT.md`; **teste real:** `docs/REAL_MVP.md`
 
 `network_calls: 0` é descritivo do app, não uma captura de tráfego.
+
+## Painel (01/11/2026)
+- Para UI/foto/follow/Direct, ler somente docs/DASHBOARD.md e testes/test_dashboard.py.
+- SQLite/fotos somente em pasta privada fora do Git.
+- Nos segue/seguimos são estados independentes por conta autenticada; unknown não é no.
+- Confirmar cliente é decisão manual do operador. Direct só após permissão e clique humano; nenhuma automação de envio em massa.
+- Status aceito API não implica entregue/lido; resultado desconhecido impede reenvio automático.
+- Usar DB separado para cada conta Instagram até modelagem multi-conta.
