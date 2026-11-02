@@ -146,10 +146,10 @@ def test_cache_reimport_repairs_same_size_corruption(tmp_path):
     root = tmp_path / "archive"
     store.initialize(root)
     media = tmp_path / "original.jpg"
-    media.write_bytes(b"\\xff\\xd8\\xff" + b"one" * 20)
+    media.write_bytes(b"\xff\xd8\xff" + b"one" * 20)
     sha = store.archive_file(root, media)
     saved = store.get_blob(root, sha)["path"]
-    saved.write_bytes(b"\\xff\\xd8\\xff" + b"two" * 20)
+    saved.write_bytes(b"\xff\xd8\xff" + b"two" * 20)
     assert store.cache_report(root, verify_hashes=True)["corrupt"] == 1
     store.archive_file(root, media)
     assert store.cache_report(root, verify_hashes=True)["available"] == 1
