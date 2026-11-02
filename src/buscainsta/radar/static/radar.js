@@ -362,6 +362,17 @@ async function initialize() {
   $("viewer").addEventListener("close", () => {
     $("viewer-media").replaceChildren(); viewerSlides = []; viewerPost = null;
   });
+  $("starter-profiles").addEventListener("click", async () => {
+    const starter = ["lizicastagnerafotografias","amizphoto","daianahenckesfotografa","updream_fotografias","carolinigirotofotografia","solarisestudiofotografico","brunacarlafoto","elizandramartins.fotografia"];
+    const control = $("starter-profiles");
+    control.disabled = true;
+    try {
+      const result = await postJSON("/api/competitors/bulk", { usernames: starter });
+      await refreshOverview();
+      setText("form-status", result.saved + " concorrentes iniciais cadastrados sem duplicação.");
+    } catch (error) { setText("form-status", error.message); }
+    finally { control.disabled = false; }
+  });
   $("batch-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const values = $("batch-input").value.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
