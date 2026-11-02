@@ -60,6 +60,13 @@ dialog::backdrop{background:#02060dda}dialog img,dialog video{max-width:100%;max
 .viewer-media{display:flex;min-height:160px;justify-content:center;align-items:center;background:#080f1b;border-radius:10px;padding:8px}
 .viewer-controls{display:flex;gap:9px;justify-content:space-between;align-items:center;margin:12px 0}
 .viewer-caption{font-size:13px;white-space:pre-wrap;max-height:90px;overflow:auto}
+.comment-preview{border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#bfd3e7}
+.comment-preview p{margin:6px 0;line-height:1.45;overflow-wrap:anywhere}
+.comment-list{max-height:200px;overflow:auto;border-top:1px solid #30445d;padding-top:9px}
+.comment-list article{padding:8px 0;border-bottom:1px solid #263a51}
+.metric-source{font-size:11px;color:#9db5ce;line-height:1.4}
+.status-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+
 [hidden]{display:none!important}
 @media(max-width:850px){.cards{grid-template-columns:repeat(2,1fr)}.timeline .tile-inner{grid-template-columns:1fr}.timeline-entry{grid-template-columns:48px minmax(0,1fr)}}
 @media(max-width:520px){main{padding:18px 12px}.mural{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.tile-content{padding:9px}.tile .meta{display:block}.tile-actions{gap:5px}.tile-actions button,.tile-actions a{padding:7px}.cards{gap:8px}.kpi{padding:12px}.kpi strong{font-size:23px}}
@@ -73,6 +80,9 @@ dialog::backdrop{background:#02060dda}dialog img,dialog video{max-width:100%;max
 <button type="button" data-view="timeline" aria-selected="false">Timeline cronológica</button>
 </nav>
 <div id="health" role="status">Consultando o banco de dados local…</div>
+<div class="status-actions"><button type="button" class="secondary" id="refresh-meta">Atualizar métricas pela Meta (se habilitado)</button>
+<button type="button" class="secondary" id="check-cache">Verificar arquivos locais</button>
+<small id="refresh-state" role="status">Exibindo últimos dados salvos</small></div><p id="cache-health" class="muted"></p>
 <section class="cards" aria-label="Resumo">
 <div class="kpi"><strong id="kpi-profiles">—</strong><span>Concorrentes ativos</span></div>
 <div class="kpi"><strong id="kpi-posts">—</strong><span>Publicações catalogadas</span></div>
@@ -106,7 +116,9 @@ dialog::backdrop{background:#02060dda}dialog img,dialog video{max-width:100%;max
 <div class="field"><label for="archived">Arquivo local</label><select id="archived"><option value="all">Todos</option><option value="local">Somente salvos</option><option value="missing">Não arquivados</option></select></div>
 <div class="field"><label for="from">Data inicial</label><input id="from" type="date"></div>
 <div class="field"><label for="to">Data final</label><input id="to" type="date"></div>
-<div class="field"><label for="sort">Ordenar</label><select id="sort"><option value="recent">Mais recentes</option><option value="oldest">Mais antigas</option><option value="likes">Mais curtidas</option><option value="comments">Mais comentários</option><option value="detected">Detecção recente</option></select></div>
+<div class="field"><label for="min-likes">Curtidas mínimas</label><input id="min-likes" type="number" min="0" max="1000000000" placeholder="0"></div>
+<div class="field"><label for="has-comments">Comentários</label><select id="has-comments"><option value="false">Todos</option><option value="true">Com comentários</option></select></div>
+<div class="field"><label for="sort">Ordenar</label><select id="sort"><option value="recent">Mais recentes</option><option value="oldest">Mais antigas</option><option value="likes">Mais curtidas</option><option value="comments">Mais comentários</option><option value="shares">Mais compartilhamentos disponíveis</option><option value="plays">Mais reproduções disponíveis</option><option value="detected">Detecção recente</option></select></div>
 </div>
 </section>
 <section id="panel-mural" hidden><div class="results-head"><h2>Mural de publicações</h2><small id="count-mural"></small></div><div id="mural" class="mural"></div></section>
@@ -119,5 +131,7 @@ dialog::backdrop{background:#02060dda}dialog img,dialog video{max-width:100%;max
 <div class="viewer-media" id="viewer-media"></div>
 <div class="viewer-controls"><button class="secondary" id="viewer-prev" type="button">Anterior</button><span id="viewer-counter"></span><button class="secondary" id="viewer-next" type="button">Próxima</button></div>
 <p id="viewer-caption" class="viewer-caption"></p>
+<div id="viewer-metadata" class="metric-source"></div>
+<h3>Comentários disponíveis no acervo</h3><div id="viewer-comments" class="comment-list"></div>
 </dialog>
 <script src="/radar.js" defer></script></body></html>
