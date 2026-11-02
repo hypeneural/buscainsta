@@ -26,3 +26,9 @@ Projeto: MVP Windows 11 para **avaliar** se contatos autorizados podem ser assoc
 - Confirmar cliente é decisão manual do operador. Direct só após permissão e clique humano; nenhuma automação de envio em massa.
 - Status aceito API não implica entregue/lido; resultado desconhecido impede reenvio automático.
 - Usar DB separado para cada conta Instagram até modelagem multi-conta.
+
+## Importação do painel legado (regra adicional)
+- `C:\BuscaInstaPrivado\painel_conferencia.html` é a fonte HTML legada de 2.739 linhas, não uma nova aplicação a recriar. Nunca sobrescrever esse HTML.
+- Importação em `legacy_import.py` por telefone normalizado; o ID CRM NÃO é único na versão examinada. Não realizar merge por ID do CRM.
+- A nova UI deve manter score VIP, indicadores, filtros, ensaios e situação 2026, além dos novos botões.
+- Sem registros reais ou scripts geradores com JSON embutido no GitHub. Somente fixtures sintéticas.

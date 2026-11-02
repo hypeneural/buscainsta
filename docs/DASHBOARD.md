@@ -51,3 +51,26 @@ O script `scripts/start-dashboard-windows.ps1` lê o venv já instalado e inicia
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dashboard-windows.ps1 -Db "C:\BuscaInstaPrivado\buscainsta.db" -Contacts "C:\BuscaInstaPrivado\contatos.csv" -Account "conta_teste"
 
 Para consulta individual adicionar `-EnableInstagram` e informar `-Account` com o **username efetivamente autenticado**, sem @. Para Direct, adicionar `-EnableDirect -MessageFile "C:\BuscaInstaPrivado\mensagem-direct.txt"` e obter autorização individual antes do clique. O adaptador bloqueia quando o usuário autenticado não corresponde a `-Account`.
+
+## Aproveitar o painel_conferencia.html existente — MIGRAÇÃO RECOMENDADA
+
+Foi identificada uma cópia do painel local com **2.739 linhas e 289 perfis candidatos**, ranking VIP P0–P4, busca, filtros e 562 IDs de CRM repetidos entre as linhas. Isso NÃO significa 562 registros duplicados: os telefones desta versão são distintos. Por isso a migração utiliza **telefone normalizado como chave de junção**, mantendo o ID do CRM apenas como atributo, sem associar erroneamente pessoas diferentes.
+
+**Não alterar, renomear, sobrescrever ou publicar o HTML original**. O novo painel lê a matriz `const allData = [...] ` via decoder JSON, sem executar JS, e faz a migração para SQLite privado. O HTML anterior permanece como backup visual.
+
+No Windows 11, primeiro execute sem conexão Instagram:
+
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dashboard-windows.ps1 `
+  -Db "C:\BuscaInstaPrivado\buscainsta.db" `
+  -LegacyPanel "C:\BuscaInstaPrivado\painel_conferencia.html" `
+  -Account "estudio_teste"
+~~~
+
+Abra **http://127.0.0.1:8765/** (não `file://`) para utilizar os botões e a persistência. Um backup consistente do SQLite existente é gerado em `buscainsta.db.before-legacy.backup` na primeira migração. Se houver banco em uso, interrompa antes a instância anterior do painel.
+
+A tela conserva **ranking VIP, score, segmentos, indicadores, consulta por nome/telefone/@/ID, ensaios históricos, LTV e situação de Natal 2026**. Também acrescenta foto, seguidores nos dois sentidos por conta, checkbox de conferência do gestor, permissão de Direct, texto fixo e horário da tentativa/aceite.
+
+**Verificação obrigatória da migração:** total de 2.739 linhas, 289 candidatos Instagram, P0=232, P1=56 e P2=654. Se o HTML local tiver sido atualizado, documentar a diferença, **não forçar números antigos**. Reexecutar o import deve atualizar contexto histórico sem apagar confirmações já registradas e sem duplicar linhas. O CSV ainda pode ser importado separadamente quando necessário.
+
+**Nota de segurança:** o HTML original inclui dados pessoais embutidos em JavaScript e renderiza parte da tabela com `innerHTML`. O novo painel usa dados via API local e cria células com `textContent`, evitando interpretar nomes de clientes como HTML. Não publicar screenshot real/HTML/SQLite em issue ou PR.

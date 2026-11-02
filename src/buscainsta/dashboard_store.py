@@ -38,8 +38,12 @@ def connection(db_path: Path):
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA busy_timeout=10000")
         conn.execute("PRAGMA foreign_keys=ON")
-        yield conn
-        conn.commit()
+        try:
+            yield conn
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
     finally:
         conn.close()
 
@@ -87,6 +91,24 @@ def setup(db_path: Path) -> None:
         );
         CREATE INDEX IF NOT EXISTS ix_contacts_name ON contacts(full_name);
         """)
+        existing = {item["name"] for item in db.execute("PRAGMA table_info(contacts)")}
+        columns = {
+            "crm_id": "TEXT NOT NULL DEFAULT ''",
+            "vip_rank": "INTEGER NOT NULL DEFAULT 0",
+            "vip_score": "REAL NOT NULL DEFAULT 0",
+            "vip_segment": "TEXT NOT NULL DEFAULT ''",
+            "total_orders": "INTEGER NOT NULL DEFAULT 0",
+            "natal_sessions": "INTEGER NOT NULL DEFAULT 0",
+            "natal_years": "INTEGER NOT NULL DEFAULT 0",
+            "last_natal_year": "TEXT NOT NULL DEFAULT ''",
+            "ltv_display": "TEXT NOT NULL DEFAULT ''",
+            "natal_spend_display": "TEXT NOT NULL DEFAULT ''",
+            "natal_2026": "TEXT NOT NULL DEFAULT ''",
+            "legacy_updated_at": "TEXT NOT NULL DEFAULT ''",
+        }
+        for name, definition in columns.items():
+            if name not in existing:
+                db.execute(f"ALTER TABLE contacts ADD COLUMN {name} {definition}")
 
 
 def _csv_rows(path: Path, columns: tuple[str, ...], max_rows: int):
@@ -155,28 +177,66 @@ def import_review(db_path: Path, path: Path) -> int:
     return count
 
 
-def list_contacts(db_path: Path, query: str = "", page: int = 1, limit: int = 50) -> dict:
+def list_contacts(db_path: Path, query: str = "", page: int = 1, limit: int = 50,
+                  segment: str = "", instagram_only: bool = False,
+                  verified_only: bool = False) -> dict:
     page = max(1, min(int(page), 10000))
     limit = max(1, min(int(limit), 100))
-    q = "%" + query[:100].strip() + "%"
+    if segment not in ("", "P0", "P1", "P2", "P3", "P4", "Outros"):
+        raise ValueError("Unsupported VIP segment.")
+    term = "%" + query[:100].strip() + "%"
+    where = """(full_name LIKE ? OR contact_id LIKE ? OR
+             candidate_username LIKE ? OR phone LIKE ? OR crm_id LIKE ?)"""
+    params = [term] * 5
+    if segment:
+        where += " AND vip_segment=?"
+        params.append(segment)
+    if instagram_only:
+        where += " AND candidate_username<>''"
+    if verified_only:
+        where += " AND manually_verified=1"
     with connection(db_path) as db:
-        total = db.execute("""
-            SELECT count(*) FROM contacts
-            WHERE full_name LIKE ? OR contact_id LIKE ? OR candidate_username LIKE ?
-        """, (q, q, q)).fetchone()[0]
-        rows = db.execute("""
-            SELECT contact_id,full_name,phone,email,candidate_username,
+        total = db.execute(f"SELECT count(*) FROM contacts WHERE {where}", params).fetchone()[0]
+        rows = db.execute(f"""
+            SELECT contact_id,crm_id,full_name,phone,email,candidate_username,
                 discovery_method,status,manually_verified,dm_permitted,
                 instagram_pk,instagram_name,is_private,follows_us,we_follow,
-                checked_account,checked_at,profile_url,
-                photo_local,last_dm_status,last_dm_attempt_at,last_dm_accepted_at
-            FROM contacts WHERE full_name LIKE ? OR contact_id LIKE ?
-              OR candidate_username LIKE ?
-            ORDER BY manually_verified DESC, full_name COLLATE NOCASE, contact_id
+                checked_account,checked_at,profile_url,photo_local,
+                last_dm_status,last_dm_attempt_at,last_dm_accepted_at,
+                vip_rank,vip_score,vip_segment,total_orders,natal_sessions,
+                natal_years,last_natal_year,ltv_display,natal_spend_display,
+                natal_2026
+            FROM contacts WHERE {where}
+            ORDER BY CASE WHEN vip_rank>0 THEN 0 ELSE 1 END,
+                     vip_rank ASC, vip_score DESC,
+                     full_name COLLATE NOCASE, contact_id
             LIMIT ? OFFSET ?
-        """, (q, q, q, limit, (page - 1) * limit)).fetchall()
+        """, [*params, limit, (page - 1) * limit]).fetchall()
         return {"total": total, "page": page, "limit": limit,
                 "items": [dict(x) for x in rows]}
+
+
+def dashboard_stats(db_path: Path) -> dict:
+    """Aggregate metrics for manager cards without exposing private contacts."""
+    with connection(db_path) as db:
+        row = db.execute("""
+            SELECT count(*) AS total,
+                   sum(CASE WHEN candidate_username<>'' THEN 1 ELSE 0 END) AS candidates,
+                   sum(CASE WHEN manually_verified=1 THEN 1 ELSE 0 END) AS verified,
+                   sum(CASE WHEN follows_us='yes' THEN 1 ELSE 0 END) AS follows_us,
+                   sum(CASE WHEN we_follow='yes' THEN 1 ELSE 0 END) AS we_follow,
+                   sum(CASE WHEN last_dm_status='accepted' THEN 1 ELSE 0 END) AS dm_accepted,
+                   sum(CASE WHEN last_dm_status='unknown' THEN 1 ELSE 0 END) AS dm_unknown
+            FROM contacts
+        """).fetchone()
+        segment_rows = db.execute("""
+            SELECT vip_segment, count(*) AS total
+            FROM contacts GROUP BY vip_segment
+        """).fetchall()
+        values = dict(row)
+        return {k: int(v or 0) for k, v in values.items()} | {
+            "segments": {r["vip_segment"] or "Sem segmento": r["total"] for r in segment_rows}
+        }
 
 
 def get_contact(db_path: Path, cid: str) -> dict:

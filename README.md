@@ -56,3 +56,11 @@ O comando nunca salva ou imprime nomes de perfis retornados: informa somente se 
 ## Painel local: foto, seguidores, confirmação e Direct
 
 Implementado um painel local com botões de revisão e Direct individual, SQLite privado e foto de perfil. Veja [docs/DASHBOARD.md](docs/DASHBOARD.md). O painel não faz envios automáticos nem grava dados de clientes no GitHub.
+
+## Unificação com o painel_conferencia.html existente
+
+O antigo relatório estático com **2.739 linhas**, candidatos e filtros VIP pode ser importado de forma **somente leitura**, sem substituí-lo:
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dashboard-windows.ps1 -Db "C:\BuscaInstaPrivado\buscainsta.db" -LegacyPanel "C:\BuscaInstaPrivado\painel_conferencia.html" -Account "estudio_teste"
+```
+Depois abra `http://127.0.0.1:8765/`. O painel unificado mantém rank, score e filtros e adiciona foto/follow, checkbox e Direct individual. Veja `docs/DASHBOARD.md`. Não fazer commit do HTML antigo: contém informações de clientes.

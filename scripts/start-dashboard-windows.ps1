@@ -4,6 +4,7 @@ param(
     [string]$Db = "C:\BuscaInstaPrivado\buscainsta.db",
     [string]$Contacts = "",
     [string]$Review = "",
+    [string]$LegacyPanel = "",
     [string]$Account = "estudio_teste",
     [switch]$EnableInstagram,
     [switch]$EnableDirect,
@@ -23,6 +24,7 @@ if (-not (Test-Path -LiteralPath $python)) {
 $arguments = @("-m", "buscainsta.dashboard", "--db", $Db, "--account", $Account, "--port", [string]$Port)
 if ($Contacts) { $arguments += @("--contacts", $Contacts) }
 if ($Review) { $arguments += @("--review", $Review) }
+if ($LegacyPanel) { $arguments += @("--legacy-panel", $LegacyPanel) }
 if ($EnableInstagram) { $arguments += "--enable-instagram" }
 if ($EnableDirect) { $arguments += "--enable-dm" }
 if ($MessageFile) { $arguments += @("--message-file", $MessageFile) }

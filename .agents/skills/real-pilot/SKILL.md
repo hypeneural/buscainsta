@@ -25,3 +25,6 @@ Antes do piloto, leia apenas `docs/REAL_MVP.md` e `src/buscainsta/pilot.py` (se 
 
 ## Painel local
 Para ações de foto/follow/Direct, consultar docs/DASHBOARD.md e executar pytest focal tests/test_dashboard.py tests/test_live_sync.py. Habilitar --enable-instagram só em testes individuais autorizados; --enable-dm apenas para envio individual aprovado, com mensagem fixa e prévia. Teste automático sempre mockado. Não usar UI para disparos em massa.
+
+## Painel legado
+Quando a tarefa mencionar `painel_conferencia.html`, ler `docs/DASHBOARD.md` e `legacy_import.py`. Não reescrever nem copiar os 2.739 contatos no repositório. Testar `tests/test_legacy_import.py`; abrir o novo painel local com `-LegacyPanel` e validar P0/P1/P2, ranking, candidatos, filtro e checks persistidos.

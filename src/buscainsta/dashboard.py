@@ -76,6 +76,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path)
         if path.path == "/":
             return self._page()
+        if path.path == "/api/stats":
+            return self._send(store.dashboard_stats(self.context.db))
         if path.path == "/api/config":
             return self._send({
                 "account": self.context.account,
@@ -88,7 +90,12 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 p = int(args.get("page", ["1"])[0])
                 q = args.get("q", [""])[0]
-                return self._send(store.list_contacts(self.context.db, q, p))
+                segment = args.get("segment", [""])[0]
+                instagram_only = args.get("instagram", ["false"])[0] == "true"
+                verified_only = args.get("verified", ["false"])[0] == "true"
+                return self._send(store.list_contacts(
+                    self.context.db, q, p, segment=segment,
+                    instagram_only=instagram_only, verified_only=verified_only))
             except ValueError:
                 return self._send({"error": "Invalid pagination."}, 400)
         if path.path == "/api/avatar":
@@ -207,6 +214,7 @@ def main():
     parser.add_argument("--db", required=True, type=Path, help="Private SQLite file outside Git")
     parser.add_argument("--contacts", type=Path, help="Import BuscaInsta contacts CSV once or update")
     parser.add_argument("--review", type=Path, help="Import matching results from live_sync review CSV")
+    parser.add_argument("--legacy-panel", type=Path, help="Read-only import of existing painel_conferencia.html")
     parser.add_argument("--account", default="conta_teste", help="Instagram account label shown in table")
     parser.add_argument("--port", default=8765, type=int)
     parser.add_argument("--enable-instagram", action="store_true", help="Allow individual read-only Instagram lookups")
@@ -227,6 +235,16 @@ def main():
             print("Contacts loaded:", store.import_contacts(db, args.contacts))
         if args.review:
             print("Review entries loaded:", store.import_review(db, args.review))
+        if args.legacy_panel:
+            import sqlite3
+            from .legacy_import import import_legacy
+            # Create an online, consistent one-time backup before migration.
+            if db.exists():
+                backup = db.with_name(db.name + ".before-legacy.backup")
+                if not backup.exists():
+                    with sqlite3.connect(str(db)) as src, sqlite3.connect(str(backup)) as dst:
+                        src.backup(dst)
+            print("Legacy panel migrated:", json.dumps(import_legacy(db, args.legacy_panel), sort_keys=True))
         message = DEFAULT_MESSAGE
         if args.message_file:
             store.check_private_path(args.message_file)

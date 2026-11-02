@@ -31,6 +31,38 @@ label.toggle input{width:16px;height:16px}
 #notice.error{color:#b1272c}
 a{color:#1e64a2;text-decoration:none}a:hover{text-decoration:underline}
 footer{padding:16px 0;color:#627286}#page{font-weight:700}code{background:#e9edf3;padding:3px;border-radius:5px}
+
+/* Updated manager view: preserve the dark look of the existing HTML report. */
+:root{color:#e8eef8;background:#090d16;color-scheme:dark}
+body{background:#090d16;color:#edf2fa}
+header{background:#101827;border-bottom:1px solid #243144}
+h1{color:#f5f8fc}.sub,small{color:#9faec3}
+.panel{background:#111b2b;border:1px solid #253249;box-shadow:0 4px 20px rgba(0,0,0,.1)}
+.note{background:#1e2d41;color:#d3e7f9}
+input[type=search],select{background:#0b1221;border:1px solid #42526b;color:#f4f7fc;padding:10px;border-radius:8px}
+th{background:#1d2c42;color:#bed0e5}
+td,th{border-color:#26364c}
+button{background:#203149;color:#e5edf8;border-color:#3d506a}
+button.primary{background:#1471be;border-color:#1471be}
+button.danger{background:#553042;color:#ffe3e5;border-color:#a44c5b}
+a{color:#77c5ff}
+.status{background:#374256;color:#dce5f3}
+.status.yes{background:#134734;color:#b9f5cf}
+.status.no{background:#52333a;color:#ffc1c1}
+.status.unknown{background:#354052;color:#c8d3e2}
+td .muted{color:#99a6b9}
+#notice{color:#90d8ff}#notice.error{color:#ff9ea1}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:#111b2b;border:1px solid #263651;border-radius:12px;padding:16px}
+.stat-value{font-size:27px;font-weight:800;color:#e6f0fb}
+.stat-label{color:#a9b7ca;font-size:12px;margin-top:4px}
+.vip-pill{display:inline-block;padding:3px 7px;margin-right:5px;border-radius:6px;background:#263c57;color:#d3e5ff;font-size:11px}
+.vip-pill.P0{background:#76364c;color:#ffc9d6}
+.vip-pill.P1{background:#51417c;color:#ddccff}
+.vip-pill.P2{background:#194f49;color:#b9f3e8}
+.vip-sub{color:#b4c3d7;font-size:11px;white-space:normal;max-width:330px}
+select{min-width:140px}
+@media(max-width:800px){main{padding:12px}header{padding:14px}input[type=search]{width:100%;min-width:100px}.tools{gap:8px}.stats-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -40,6 +72,7 @@ footer{padding:16px 0;color:#627286}#page{font-weight:700}code{background:#e9edf
 <div id="account" class="sub">Carregando configuração…</div>
 </header>
 <main>
+<section id="stats" class="stats-grid" aria-label="Indicadores do painel"></section>
 <section class="panel">
 <h2>Mensagem fixa do Direct</h2>
 <p class="note" id="message">Carregando…</p>
@@ -48,6 +81,15 @@ footer{padding:16px 0;color:#627286}#page{font-weight:700}code{background:#e9edf
 <section class="panel tools">
 <input type="search" id="search" placeholder="Buscar por nome, ID ou @Instagram" aria-label="Buscar contatos"/>
 <button id="searchBtn" class="primary">Pesquisar</button>
+<label class="toggle">Prioridade
+<select id="segment" aria-label="Filtrar prioridade">
+<option value="">Todas</option>
+<option value="P0">P0</option><option value="P1">P1</option>
+<option value="P2">P2</option><option value="P3">P3</option>
+<option value="P4">P4</option><option value="Outros">Outros</option>
+</select></label>
+<label class="toggle"><input type="checkbox" id="onlyInstagram"/> Com Instagram</label>
+<label class="toggle"><input type="checkbox" id="onlyVerified"/> Conferidos</label>
 <span id="summary"></span><span style="flex:1"></span>
 <button id="prev">Anterior</button><span id="page">1</span><button id="next">Próxima</button>
 </section>
@@ -55,7 +97,7 @@ footer{padding:16px 0;color:#627286}#page{font-weight:700}code{background:#e9edf
 <section class="panel table-wrap">
 <table>
 <thead><tr>
-<th>Foto</th><th>Cliente do CRM</th><th>Perfil / situação</th>
+<th>Foto</th><th>Cliente / ranking VIP / ensaios</th><th>Perfil / situação</th>
 <th>Nos segue?</th><th>Seguimos?</th><th>Conferido?</th>
 <th>Permissão Direct</th><th>Último Direct / horário</th><th>Ações</th>
 </tr></thead>
@@ -68,13 +110,13 @@ footer{padding:16px 0;color:#627286}#page{font-weight:700}code{background:#e9edf
 "use strict";
 const csrf=document.querySelector('meta[name="csrf-token"]').content;
 const tbody=document.getElementById("rows");
-let config={},page=1,total=0,query="";
+let config={},page=1,total=0,query="",segment="",instagramOnly=false,verifiedOnly=false;
 const byId=id=>document.getElementById(id);
 const el=(name,text,classname)=>{const node=document.createElement(name);if(text!==undefined&&text!==null)node.textContent=String(text);if(classname)node.className=classname;return node;};
 const td=(tr)=>{const x=el("td");tr.appendChild(x);return x;};
 const message=(s,bad=false)=>{const n=byId("notice");n.textContent=s;n.className=bad?"error":"";};
 async function api(url,opts){const response=await fetch(url,{cache:"no-store",...opts});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||"Operação indisponível");return data;}
-async function post(id,action,payload){try{message("Executando…");await api("/api/contacts/"+encodeURIComponent(id)+"/"+action,{method:"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},body:JSON.stringify(payload)});message("Atualizado.");await load();}catch(e){message(e.message,true);await load();}}
+async function post(id,action,payload){try{message("Executando…");await api("/api/contacts/"+encodeURIComponent(id)+"/"+action,{method:"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},body:JSON.stringify(payload)});message("Atualizado.");await Promise.all([load(),refreshStats()]);}catch(e){message(e.message,true);await load();}}
 function statusLabel(v){return v==="yes"?"Sim":v==="no"?"Não":"Desconhecido";}
 function stamp(v){if(!v)return "—";const d=new Date(v);return isNaN(d)?"—":d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});}
 function button(parent,label,callback,disabled=false,cls=""){const b=el("button",label,cls);b.type="button";b.disabled=disabled;b.onclick=callback;parent.appendChild(b);return b;}
@@ -82,7 +124,13 @@ function toggle(parent,label,checked,disabled,callback){const wrapper=el("label"
 function renderItem(item){
  const tr=el("tr");
  const pic=td(tr);if(item.photo_local){const img=el("img");img.className="avatar";img.alt="Foto do perfil";img.loading="lazy";img.src="/api/avatar?cid="+encodeURIComponent(item.contact_id);pic.appendChild(img);}else pic.appendChild(el("span","Sem foto","muted small"));
- const person=td(tr);person.append(el("strong",item.full_name),el("div",item.contact_id,"muted small"),el("div",item.phone||"Sem telefone","small"),el("div",item.email||"Sem e-mail","muted small"));
+ const person=td(tr);person.appendChild(el("strong",item.full_name));
+ const labels=el("div",undefined,"small");if(item.vip_rank)labels.appendChild(el("span","#"+item.vip_rank,"vip-pill"));if(item.vip_segment)labels.appendChild(el("span",item.vip_segment,"vip-pill "+item.vip_segment));if(item.vip_score)labels.appendChild(el("span","Score "+item.vip_score,"vip-pill"));person.appendChild(labels);
+ person.appendChild(el("div","CRM: "+(item.crm_id||"não disponível")+" | Ensaios Natal: "+(item.natal_sessions||0)+" | Pedidos históricos: "+(item.total_orders||0)+" | Último Natal: "+(item.last_natal_year||"—"),"vip-sub"));
+ person.appendChild(el("div","LTV: "+(item.ltv_display||"não disponível")+" | Natal 2026: "+(item.natal_2026||"revalidar"),"vip-sub"));
+ person.appendChild(el("div",item.contact_id,"muted small"));
+ if(item.phone){const phoneDigits=item.phone.replace(/[^0-9]/g,"");if(phoneDigits){const wa=el("a",item.phone);wa.href="https://wa.me/"+phoneDigits;wa.target="_blank";wa.rel="noopener noreferrer";person.appendChild(wa);}else person.appendChild(el("div",item.phone,"small"));}else person.appendChild(el("div","Sem telefone","small"));
+ person.appendChild(el("div",item.email||"Sem e-mail","muted small"));
  const profile=td(tr);if(item.candidate_username){const link=el("a","@"+item.candidate_username);link.href="https://www.instagram.com/"+encodeURIComponent(item.candidate_username)+"/";link.target="_blank";link.rel="noopener noreferrer";profile.append(link,el("div",item.instagram_name||item.discovery_method||"Candidato","small"));}else profile.append(el("span","Não encontrado","muted"));
  profile.append(el("div",item.manually_verified?"Marcado como conferido pelo operador":item.status,"muted small"));
  const followers=td(tr),followed=td(tr);
@@ -98,13 +146,22 @@ function renderItem(item){
  return tr;
 }
 async function load(){
- try{const v=await api("/api/contacts?"+new URLSearchParams({q:query,page:String(page)}));total=v.total;tbody.replaceChildren();if(!v.items.length){const tr=el("tr");td(tr).textContent="Nenhum cliente encontrado.";tbody.appendChild(tr);}else for(const item of v.items)tbody.appendChild(renderItem(item));byId("summary").textContent=total+" contatos";byId("page").textContent="Página "+v.page;byId("prev").disabled=page<=1;byId("next").disabled=page*v.limit>=total;}catch(e){message(e.message,true);}
+ try{const v=await api("/api/contacts?"+new URLSearchParams({q:query,page:String(page),segment:segment,instagram:String(instagramOnly),verified:String(verifiedOnly)}));total=v.total;tbody.replaceChildren();if(!v.items.length){const tr=el("tr");td(tr).textContent="Nenhum cliente encontrado.";tbody.appendChild(tr);}else for(const item of v.items)tbody.appendChild(renderItem(item));byId("summary").textContent=total+" contatos";byId("page").textContent="Página "+v.page;byId("prev").disabled=page<=1;byId("next").disabled=page*v.limit>=total;}catch(e){message(e.message,true);}
 }
-async function init(){try{config=await api("/api/config");byId("message").textContent=config.fixed_message;byId("account").textContent="Conta: "+config.account+" | Consulta: "+(config.read_enabled?"ativada":"desativada")+" | Direct: "+(config.direct_enabled?"ativado":"desativado");await load();}catch(e){message(e.message,true);}}
+async function refreshStats(){const data=await api("/api/stats");
+ const metrics=[["Total de clientes",data.total],["Instagram encontrado",data.candidates],["Conferidos pelo gestor",data.verified],
+ ["P0 · VIP",data.segments.P0||0],["P1 · Recorrentes",data.segments.P1||0],
+ ["P2 · Histórico",data.segments.P2||0],["Clientes que nos seguem",data.follows_us],
+ ["Direct aceito pela API",data.dm_accepted],["Direct a revisar",data.dm_unknown]];
+ const pane=byId("stats");pane.replaceChildren();for(const [label,count] of metrics){const card=el("div",undefined,"stat-card");card.appendChild(el("div",Number(count||0).toLocaleString("pt-BR"),"stat-value"));card.appendChild(el("div",label,"stat-label"));pane.appendChild(card);}}
+async function init(){try{config=await api("/api/config");byId("message").textContent=config.fixed_message;byId("account").textContent="Conta: "+config.account+" | Consulta: "+(config.read_enabled?"ativada":"desativada")+" | Direct: "+(config.direct_enabled?"ativado":"desativado");await Promise.all([refreshStats(),load()]);}catch(e){message(e.message,true);}}
 byId("searchBtn").onclick=()=>{page=1;query=byId("search").value.trim();load();};
 byId("search").addEventListener("keydown",e=>{if(e.key==="Enter")byId("searchBtn").click();});
 byId("prev").onclick=()=>{if(page>1){page--;load();}};
 byId("next").onclick=()=>{if(page*50<total){page++;load();}};
+byId("segment").onchange=e=>{segment=e.target.value;page=1;load();};
+byId("onlyInstagram").onchange=e=>{instagramOnly=e.target.checked;page=1;load();};
+byId("onlyVerified").onchange=e=>{verifiedOnly=e.target.checked;page=1;load();};
 init();
 </script>
 </body></html>
