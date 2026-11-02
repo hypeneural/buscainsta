@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 import pytest
 
 from buscainsta import dashboard_store as s
-from buscainsta.dashboard import Handler
+from buscainsta.dashboard import Handler, load_or_create_csrf
 from buscainsta.instagram_actions import InstagramActions, photo_host_allowed
 from buscainsta.live_sync import match_user_to_contact
 
@@ -41,12 +41,40 @@ def test_store_review_and_flags(db):
     assert s.get_contact(db, "C-001")["manually_verified"] == 0
     s.set_verified(db, "C-001", True)
     assert s.get_contact(db, "C-001")["manually_verified"] == 1
+    assert s.get_contact(db, "C-001")["dm_permitted"] == 0
     s.set_dm_permission(db, "C-001", True)
     assert s.get_contact(db, "C-001")["dm_permitted"] == 1
     s.set_candidate(db, "C-001", "outro_cliente")
     row = s.get_contact(db, "C-001")
     assert row["manually_verified"] == 0
     assert row["dm_permitted"] == 0
+
+
+def test_store_auto_permit_and_reject(db):
+    s.set_candidate(db, "C-001", "@cliente_teste")
+    s.set_verified(db, "C-001", True, auto_permit_dm=True)
+    row = s.get_contact(db, "C-001")
+    assert row["manually_verified"] == 1
+    assert row["dm_permitted"] == 1
+    assert row["status"] == "manual_checked"
+
+    s.set_rejected(db, "C-001", True)
+    rejected = s.get_contact(db, "C-001")
+    assert rejected["manually_verified"] == 0
+    assert rejected["dm_permitted"] == 0
+    assert rejected["status"] == "rejected"
+    assert s.dashboard_stats(db)["rejected"] == 1
+
+    s.set_rejected(db, "C-001", False)
+    restored = s.get_contact(db, "C-001")
+    assert restored["status"] == "candidate"
+
+
+def test_persistent_csrf_across_restarts(db):
+    token1 = load_or_create_csrf(db)
+    token2 = load_or_create_csrf(db)
+    assert len(token1) >= 24
+    assert token1 == token2
 
 
 def test_follow_statuses_are_account_specific(db):
@@ -91,22 +119,22 @@ def test_dm_unknown_not_retried(db):
     s.set_verified(db, "C-001", True)
     s.set_dm_permission(db, "C-001", True)
     s.save_profile(db, "C-001", "conta", dict(
-        username="cliente_teste",pk="123",full_name="",is_private="unknown",
-        follows_us="unknown",we_follow="unknown",profile_url="",photo_url=""
+        username="cliente_teste", pk="123", full_name="", is_private="unknown",
+        follows_us="unknown", we_follow="unknown", profile_url="", photo_url=""
     ))
-    s.reserve_dm(db,"C-001","conta","sha","x1")
-    s.finish_dm(db,"C-001","x1",False)
-    assert s.get_contact(db,"C-001")["last_dm_status"]=="unknown"
+    s.reserve_dm(db, "C-001", "conta", "sha", "x1")
+    s.finish_dm(db, "C-001", "x1", False)
+    assert s.get_contact(db, "C-001")["last_dm_status"] == "unknown"
     with pytest.raises(ValueError):
-        s.reserve_dm(db,"C-001","conta","sha","x2")
+        s.reserve_dm(db, "C-001", "conta", "sha", "x2")
 
 
 def test_duplicate_name_match_is_ambiguous():
     contacts = [
-        {"contact_id":"a","full_name":"Maria Silva","email":"a@example.invalid"},
-        {"contact_id":"b","full_name":"Maria Silva","email":"b@example.invalid"},
+        {"contact_id": "a", "full_name": "Maria Silva", "email": "a@example.invalid"},
+        {"contact_id": "b", "full_name": "Maria Silva", "email": "b@example.invalid"},
     ]
-    assert match_user_to_contact({"username":"marias","full_name":"Maria Silva"},contacts) is None
+    assert match_user_to_contact({"username": "marias", "full_name": "Maria Silva"}, contacts) is None
 
 
 def test_image_allowlist():
@@ -122,71 +150,147 @@ class FakeIG:
     def __init__(self):
         self.sent = 0
         self.username = "conta_estudio"
+        self.user_id = "999000"
+
     def login(self, login, password):
         self.login_name = login
-    def user_info_by_username(self, user):
-        return SimpleNamespace(username=user,pk="123",full_name="Cliente",
-                               is_private=False,profile_pic_url="",profile_pic_url_hd=None)
+
+    def user_info_by_username_v1(self, user):
+        return SimpleNamespace(
+            username=user, pk="123", full_name="Cliente Exemplo | Moda & Lifestyle",
+            is_private=False, profile_pic_url="", profile_pic_url_hd=None
+        )
+
     def user_friendship_v1(self, pk):
-        return SimpleNamespace(followed_by=True,following=False)
+        return SimpleNamespace(followed_by=True, following=False)
+
+    def user_friendships_v1(self, pks):
+        return [SimpleNamespace(user_id=str(pk), following=False, is_private=False) for pk in pks]
+
+    def search_followers_v1(self, uid, query):
+        return [
+            SimpleNamespace(
+                username="clienteexemplo.oficial", pk="123",
+                full_name="Cliente Exemplo | Moda & Lifestyle", is_private=False
+            )
+        ]
+
+    def fbsearch_topsearch_flat(self, query):
+        return [
+            {
+                "position": 0,
+                "user": {
+                    "username": "outro_perfil",
+                    "pk": "456",
+                    "full_name": "Cliente Outra Cidade",
+                    "is_private": True,
+                },
+            }
+        ]
+
     def direct_send(self, message, user_ids):
         self.sent += 1
         assert user_ids == [123]
         return SimpleNamespace(id="DIRECT-1")
 
 
-def test_instagram_adapter_one_to_one(monkeypatch):
-    monkeypatch.setenv("BUSCAINSTA_IG_TEST_LOGIN", "tester")
-    monkeypatch.setenv("BUSCAINSTA_IG_TEST_PASSWORD", "redacted")
-    fake=FakeIG()
-    adapter=InstagramActions("conta_estudio",client_factory=lambda:fake)
-    profile=adapter.inspect("cliente_teste")
-    assert profile["follows_us"]=="yes"
-    assert profile["we_follow"]=="no"
-    assert profile["photo_url"]==""
-    assert adapter.direct_once(profile["pk"],"Mensagem de teste")=="DIRECT-1"
-    assert fake.sent==1
+def test_instagram_adapter_one_to_one_and_search(monkeypatch, tmp_path):
+    monkeypatch.delenv("BUSCAINSTA_IG_TEST_LOGIN", raising=False)
+    monkeypatch.delenv("BUSCAINSTA_IG_TEST_PASSWORD", raising=False)
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "BUSCAINSTA_IG_TEST_LOGIN=tester\nBUSCAINSTA_IG_TEST_PASSWORD=redacted\n",
+        encoding="utf-8",
+    )
+    fake = FakeIG()
+    adapter = InstagramActions(
+        "conta_estudio",
+        client_factory=lambda: fake,
+        session_dir=tmp_path / "sessions",
+        env_file=env_file,
+    )
+    assert adapter.has_credentials() is True
+    profile = adapter.inspect("cliente_teste")
+    assert profile["follows_us"] == "yes"
+    assert profile["we_follow"] == "no"
+    assert profile["photo_url"] == ""
+
+    hits = adapter.search_candidates("Cliente Exemplo")
+    assert len(hits) >= 1
+    assert hits[0]["username"] == "clienteexemplo.oficial"
+    assert hits[0]["follows_us"] == "yes"
+    assert hits[0]["we_follow"] == "no"
+    assert hits[0]["score"] >= 90
+
+    assert adapter.direct_once(profile["pk"], "Mensagem de teste") == "DIRECT-1"
+    assert fake.sent == 1
 
 
 def test_local_ui_flow(db, monkeypatch):
     monkeypatch.setenv("BUSCAINSTA_IG_TEST_LOGIN", "tester")
     monkeypatch.setenv("BUSCAINSTA_IG_TEST_PASSWORD", "redacted")
-    provider=InstagramActions("conta_estudio",client_factory=FakeIG)
-    srv=ThreadingHTTPServer(("127.0.0.1",0),Handler)
-    srv.context=SimpleNamespace(db=db,account="conta_estudio",read_enabled=True,
-        direct_enabled=True,message="Mensagem fixa",csrf="unit-test-token",
-        provider=provider)
-    thread=threading.Thread(target=srv.serve_forever,daemon=True)
+    provider = InstagramActions("conta_estudio", client_factory=FakeIG)
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    srv.context = SimpleNamespace(
+        db=db, account="conta_estudio", read_enabled=True,
+        direct_enabled=True, message="Mensagem fixa", csrf="unit-test-token",
+        provider=provider
+    )
+    thread = threading.Thread(target=srv.serve_forever, daemon=True)
     thread.start()
-    base=f"http://127.0.0.1:{srv.server_port}"
+    base = f"http://127.0.0.1:{srv.server_port}"
+
     def get(path):
-        with urlopen(base+path,timeout=3) as response:
+        with urlopen(base + path, timeout=3) as response:
             return response.read().decode("utf-8")
-    def post(action,value,csrf=True):
-        req=Request(base+"/api/contacts/C-001/"+action,
-                    data=json.dumps(value).encode(),
-                    headers={"Content-Type":"application/json",
-                             "X-CSRF-Token":"unit-test-token" if csrf else "bad"},
-                    method="POST")
-        with urlopen(req,timeout=4) as response:
+
+    def post(action, value, csrf=True):
+        req = Request(
+            base + "/api/contacts/C-001/" + action,
+            data=json.dumps(value).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "X-CSRF-Token": "unit-test-token" if csrf else "bad",
+            },
+            method="POST",
+        )
+        with urlopen(req, timeout=4) as response:
             return json.loads(response.read())
+
     try:
-        assert "BuscaInsta" in get("/")
-        assert json.loads(get("/api/contacts"))["total"]==2
+        html = get("/")
+        assert "BuscaInsta" in html
+        assert "Permissão Direct" not in html
+        assert "Pesquisar IG" in html
+        assert "<svg" in get("/favicon.ico")
+        cfg = json.loads(get("/api/config"))
+        assert cfg["csrf_token"] == "unit-test-token"
+        assert json.loads(get("/api/contacts"))["total"] == 2
         with pytest.raises(HTTPError) as blocked:
-            post("candidate",{"username":"cliente_teste"},False)
-        assert blocked.value.code==403
-        post("candidate",{"username":"cliente_teste"})
-        post("inspect",{})
-        assert s.get_contact(db,"C-001")["follows_us"]=="yes"
-        post("verify",{"value":True})
-        post("direct-permission",{"value":True})
-        post("send-direct",{"confirm":True})
-        row=s.get_contact(db,"C-001")
-        assert row["last_dm_status"]=="accepted" and row["last_dm_accepted_at"]
+            post("candidate", {"username": "cliente_teste"}, False)
+        assert blocked.value.code == 403
+
+        search_res = post("search-ig", {})
+        assert search_res["candidates"][0]["username"] == "clienteexemplo.oficial"
+
+        post("select-candidate", {"username": "cliente_teste"})
+        assert s.get_contact(db, "C-001")["follows_us"] == "yes"
+        assert s.get_contact(db, "C-001")["we_follow"] == "no"
+
+        post("reject", {"value": True})
+        assert s.get_contact(db, "C-001")["status"] == "rejected"
+
+        post("verify", {"value": True, "auto_permit_dm": True})
+        verified_row = s.get_contact(db, "C-001")
+        assert verified_row["manually_verified"] == 1
+        assert verified_row["dm_permitted"] == 1
+
+        post("send-direct", {"confirm": True})
+        row = s.get_contact(db, "C-001")
+        assert row["last_dm_status"] == "accepted" and row["last_dm_accepted_at"]
         with pytest.raises(HTTPError) as duplicate:
-            post("send-direct",{"confirm":True})
-        assert duplicate.value.code==409
+            post("send-direct", {"confirm": True})
+        assert duplicate.value.code == 409
     finally:
         srv.shutdown()
         srv.server_close()
@@ -197,10 +301,12 @@ def test_reject_wrong_authenticated_account(monkeypatch):
     from buscainsta.instagram_actions import PublicSafeError
     monkeypatch.setenv("BUSCAINSTA_IG_TEST_LOGIN", "tester")
     monkeypatch.setenv("BUSCAINSTA_IG_TEST_PASSWORD", "redacted")
+
     class WrongAccount(FakeIG):
         def __init__(self):
             super().__init__()
             self.username = "somebody_else"
+
     adapter = InstagramActions("conta_estudio", client_factory=WrongAccount)
     with pytest.raises(PublicSafeError, match="login unavailable|differs"):
         adapter.inspect("cliente_teste")

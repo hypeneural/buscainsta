@@ -3,10 +3,10 @@
 Painel em http://127.0.0.1:8765/ que lê CSV de clientes do BuscaInsta e, opcionalmente, um CSV de resultados do live_sync. Registra tudo em SQLite privado, fora do Git.
 
 ## Campos e ações
-- Editar @: altera candidato e remove confirmação anterior/permissionamento do Direct.
-- Consultar foto/seguidores: pesquisa individual por @; devolve relação por conta autenticada em 3 estados (Sim, Não, Desconhecido) e salva miniatura em pasta privada.
-- É o cliente: confirmação MANUAL pelo operador, não pelo titular; não é automática.
-- Permissão Direct: check individual do operador para contatos elegíveis/autorizados.
+- 🔍 Pesquisar IG: busca candidatos ao vivo via `instagrapi` (seguidores da própria conta `search_followers_v1`, `fbsearch_topsearch_flat` e diretório nominal, com limpeza de bio/títulos e enriquecimento da relação de seguidores) e permite aplicar o `@` já puxando foto e status em 1 clique.
+- 🔄 Foto/Status e 📸 Atualizar fotos da página: consulta por `@` (`user_info_by_username_v1` + `user_friendship_v1`); devolve relação por conta autenticada em 3 estados (Sim, Não, Desconhecido) e salva miniatura em pasta privada.
+- Editar @: altera candidato manualmente (e já atualiza foto/seguidores se a consulta estiver ativa), removendo confirmação anterior.
+- Conferido? (`✓` / `✕`): confirmação visual MANUAL pelo operador (`✓` confirma o perfil do cliente e habilita a elegibilidade de envio individual; `✕` descarta visualmente um candidato incorreto).
 - Enviar Direct: prévia da mensagem fixa, clique individual, bloqueio contra reenvio automático. Registra horário UTC da tentativa e horário do aceite da API; aceite não prova entrega ou leitura.
 
 ## Primeira execução, sem acesso ao Instagram
@@ -19,23 +19,23 @@ Na branch da PR #1 atualizada, rode:
 O argumento opcional --review recebe o CSV criado pelo live_sync. A importação local aceita até 10.000 linhas do CSV com 8 colunas do BuscaInsta, inclusive contatos cujo consentimento para marketing ainda está pendente. A importação não dispara mensagens.
 
 ## Ativar consultas individuais ao Instagram
-Login do Chrome não é reaproveitado. Biblioteca não oficial, requer credenciais da conta de teste via variáveis BUSCAINSTA_IG_TEST_LOGIN e BUSCAINSTA_IG_TEST_PASSWORD; instalação separada:
+Login do Chrome não é reaproveitado. Biblioteca não oficial, requer credenciais da conta de teste via variáveis BUSCAINSTA_IG_TEST_LOGIN e BUSCAINSTA_IG_TEST_PASSWORD (ou arquivo local `.env` ignorado pelo Git); sessões autenticadas ficam apenas em pasta privada fora do Git (`C:\BuscaInstaPrivado\sessions\`):
 
     py -3.12 -m venv .venv-live
     .\.venv-live\Scripts\python.exe -m pip install -e ".[live]"
     .\.venv-live\Scripts\python.exe -m buscainsta.dashboard --db "C:\BuscaInstaPrivado\buscainsta.db" --account "estudio_teste" --enable-instagram
 
-Somente o clique Consultar faz chamada à instagrapi. Falha de imagem não bloqueia a consulta de seguidores. Falha na consulta não é interpretada como Não.
+Somente ações iniciadas pelo operador no painel fazem chamada à instagrapi. Falha de imagem não bloqueia a consulta de seguidores. Falha na consulta não é interpretada como Não.
 
 ## Ativar Direct individual
 Após conferir elegibilidade e autorização para a mensagem, crie o arquivo privado C:\BuscaInstaPrivado\mensagem-direct.txt (UTF-8) com o texto fixo:
 
     .\.venv-live\Scripts\python.exe -m buscainsta.dashboard --db "C:\BuscaInstaPrivado\buscainsta.db" --account "estudio_teste" --enable-instagram --enable-dm --message-file "C:\BuscaInstaPrivado\mensagem-direct.txt"
 
-O botão requer confirmação manual do perfil, permissão Direct e consulta recente na MESMA conta. Após uma tentativa, mesmo que o resultado seja desconhecido, não há reenvio automático. Um aceite devolvido pela biblioteca não comprova a entrega. Evitar campanhas frias/automatizadas; conferir termos e política Meta.
+O botão requer confirmação manual do perfil (`✓`) e consulta recente na MESMA conta. Após uma tentativa, mesmo que o resultado seja desconhecido, não há reenvio automático. Um aceite devolvido pela biblioteca não comprova a entrega. Evitar campanhas frias/automatizadas; conferir termos e política Meta.
 
 ## Segurança e privacidade
-- Servidor escuta exclusivamente em 127.0.0.1; Host, Origin e token CSRF para escrita; sem CORS remoto.
+- Servidor escuta exclusivamente em 127.0.0.1; Host, Origin e token CSRF persistido localmente para escrita; sem CORS remoto.
 - Arquivos pessoais, SQLite, miniaturas, sessões e senhas jamais podem ser enviados ao GitHub.
 - A foto tem filtro por domínio HTTPS de CDN, tipo, assinatura e tamanho. URLs CDN podem expirar.
 - Quatro contas Instagram: usar **um SQLite separado por conta** até migração para modelo multi-conta; relações são dependentes de cada conta.
@@ -43,14 +43,15 @@ O botão requer confirmação manual do perfil, permissão Direct e consulta rec
 - O usuário confirma manualmente o perfil; uma sugestão baseada em nome não confirma identidade.
 
 ## Aceite
-CI novo 4/4; Windows local; painel com tabela/foto, busca e paginação; followers nos dois sentidos por conta; confirmação e Direct permission; teste de envio com FakeClient e timestamp; checagem de pastas privadas e ausência de dados pessoais no repo.
+CI novo 4/4; Windows local; painel com tabela/foto, busca e paginação; followers nos dois sentidos por conta; confirmação visual (`✓`/`✕`) e Direct individual; teste de envio com FakeClient e timestamp; checagem de pastas privadas e ausência de dados pessoais no repo.
+
 ## Atalho PowerShell
 
 O script `scripts/start-dashboard-windows.ps1` lê o venv já instalado e inicia a tabela. Exemplo sem rede:
 
     powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dashboard-windows.ps1 -Db "C:\BuscaInstaPrivado\buscainsta.db" -Contacts "C:\BuscaInstaPrivado\contatos.csv" -Account "conta_teste"
 
-Para consulta individual adicionar `-EnableInstagram` e informar `-Account` com o **username efetivamente autenticado**, sem @. Para Direct, adicionar `-EnableDirect -MessageFile "C:\BuscaInstaPrivado\mensagem-direct.txt"` e obter autorização individual antes do clique. O adaptador bloqueia quando o usuário autenticado não corresponde a `-Account`.
+Para consulta individual adicionar `-EnableInstagram` e informar `-Account` com o **username efetivamente autenticado**, sem @. Para Direct, adicionar `-EnableDirect -MessageFile "C:\BuscaInstaPrivado\mensagem-direct.txt"`. O adaptador bloqueia quando o usuário autenticado não corresponde a `-Account`.
 
 ## Aproveitar o painel_conferencia.html existente — MIGRAÇÃO RECOMENDADA
 
@@ -69,7 +70,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dashboard-wind
 
 Abra **http://127.0.0.1:8765/** (não `file://`) para utilizar os botões e a persistência. Um backup consistente do SQLite existente é gerado em `buscainsta.db.before-legacy.backup` na primeira migração. Se houver banco em uso, interrompa antes a instância anterior do painel.
 
-A tela conserva **ranking VIP, score, segmentos, indicadores, consulta por nome/telefone/@/ID, ensaios históricos, LTV e situação de Natal 2026**. Também acrescenta foto, seguidores nos dois sentidos por conta, checkbox de conferência do gestor, permissão de Direct, texto fixo e horário da tentativa/aceite.
+A tela conserva **ranking VIP, score, segmentos, indicadores, consulta por nome/telefone/@/ID, ensaios históricos, LTV e situação de Natal 2026**. Também acrescenta foto, seguidores nos dois sentidos por conta, ícones `✓`/`✕` de conferência do gestor, pesquisa viva no Instagram, texto fixo e horário da tentativa/aceite.
 
 **Verificação obrigatória da migração:** total de 2.739 linhas, 289 candidatos Instagram, P0=232, P1=56 e P2=654. Se o HTML local tiver sido atualizado, documentar a diferença, **não forçar números antigos**. Reexecutar o import deve atualizar contexto histórico sem apagar confirmações já registradas e sem duplicar linhas. O CSV ainda pode ser importado separadamente quando necessário.
 

@@ -1,12 +1,13 @@
 """Loopback-only BuscaInsta review dashboard (Python stdlib).
 
-A human may review a candidate, inspect their profile/follow relationship,
-cache a tiny avatar privately, and individually send one fixed Direct message
-after explicit manual verification and permission. Never bulk-sends.
+A human may review a candidate, search Instagram profiles, inspect their
+profile/follow relationship, cache a tiny avatar privately, and individually
+send one fixed Direct message after explicit manual verification. Never bulk-sends.
 """
 import argparse
 import hashlib
 import json
+import os
 import secrets
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -16,15 +17,39 @@ from urllib.parse import parse_qs, unquote, urlsplit
 
 from . import dashboard_store as store
 from .instagram_actions import InstagramActions, PublicSafeError, fetch_avatar
+from .live_sync import load_env_file
 
 DEFAULT_MESSAGE = (
     "Olá! Aqui é o Estúdio Evydência. "
     "Podemos conversar por aqui sobre as fotos de Natal? 🎄"
 )
 
+FAVICON_SVG = (
+    b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+    b'<rect width="32" height="32" rx="8" fill="#1471be"/>'
+    b'<circle cx="16" cy="16" r="6.5" fill="none" stroke="#fff" stroke-width="2.5"/>'
+    b'<circle cx="23.5" cy="8.5" r="1.8" fill="#b9f5cf"/>'
+    b'</svg>'
+)
+
+
+def load_or_create_csrf(db_path: Path) -> str:
+    """Persist a private local CSRF token alongside the SQLite DB across restarts."""
+    token_file = store.check_private_path(db_path.with_name(".dashboard_csrf"))
+    if token_file.is_file():
+        existing = token_file.read_text(encoding="utf-8", errors="ignore").strip()
+        if 24 <= len(existing) <= 128:
+            return existing
+    token = secrets.token_urlsafe(24)
+    token_file.parent.mkdir(parents=True, exist_ok=True)
+    token_file.write_text(token, encoding="utf-8")
+    if os.name != "nt":
+        os.chmod(token_file, 0o600)
+    return token
+
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "BuscaInstaLocal/0.3"
+    server_version = "BuscaInstaLocal/0.4"
 
     def log_message(self, format, *args):
         # Never log URLs containing contact identifiers or payloads.
@@ -70,12 +95,32 @@ class Handler(BaseHTTPRequestHandler):
         self._headers(200, "text/html; charset=utf-8", len(content))
         self.wfile.write(content)
 
+    def _inspect_and_save(self, cid: str) -> None:
+        row = store.get_contact(self.context.db, cid)
+        if not row["candidate_username"]:
+            raise ValueError("Enter @username before inspecting.")
+        result = self.context.provider.inspect(row["candidate_username"])
+        cached = ""
+        if result["photo_url"]:
+            try:
+                cached = fetch_avatar(
+                    result["photo_url"],
+                    self.context.db.parent / "photos",
+                    cid + "-" + result["pk"],
+                )
+            except PublicSafeError:
+                pass  # Photo failure must not hide the profile or relationship.
+        store.save_profile(self.context.db, cid, self.context.account, result, cached)
+
     def do_GET(self):
         if not self._site_allowed():
             return self._send({"error": "Local host only."}, 403)
         path = urlsplit(self.path)
         if path.path == "/":
             return self._page()
+        if path.path == "/favicon.ico":
+            self._headers(200, "image/svg+xml", len(FAVICON_SVG))
+            return self.wfile.write(FAVICON_SVG)
         if path.path == "/api/stats":
             return self._send(store.dashboard_stats(self.context.db))
         if path.path == "/api/config":
@@ -84,6 +129,7 @@ class Handler(BaseHTTPRequestHandler):
                 "read_enabled": self.context.read_enabled,
                 "direct_enabled": self.context.direct_enabled,
                 "fixed_message": self.context.message,
+                "csrf_token": self.context.csrf,
             })
         if path.path == "/api/contacts":
             args = parse_qs(path.query)
@@ -145,14 +191,33 @@ class Handler(BaseHTTPRequestHandler):
         if not cid or len(cid) > 500:
             return self._send({"error": "Invalid contact."}, 400)
         try:
+            warning = ""
             if action == "candidate":
                 if not isinstance(data.get("username"), str):
                     raise ValueError("Invalid username.")
                 store.set_candidate(self.context.db, cid, data["username"])
+            elif action == "select-candidate":
+                if not isinstance(data.get("username"), str):
+                    raise ValueError("Invalid username.")
+                store.set_candidate(self.context.db, cid, data["username"])
+                if self.context.read_enabled:
+                    try:
+                        self._inspect_and_save(cid)
+                    except (ValueError, PublicSafeError) as inspect_exc:
+                        warning = str(inspect_exc)
             elif action == "verify":
                 if type(data.get("value")) is not bool:
                     raise ValueError("Expected checkbox value.")
-                store.set_verified(self.context.db, cid, data["value"])
+                store.set_verified(
+                    self.context.db,
+                    cid,
+                    data["value"],
+                    auto_permit_dm=bool(data.get("auto_permit_dm")),
+                )
+            elif action == "reject":
+                if type(data.get("value")) is not bool:
+                    raise ValueError("Expected boolean value.")
+                store.set_rejected(self.context.db, cid, data["value"])
             elif action == "direct-permission":
                 if type(data.get("value")) is not bool:
                     raise ValueError("Expected checkbox value.")
@@ -160,29 +225,36 @@ class Handler(BaseHTTPRequestHandler):
             elif action == "inspect":
                 if not self.context.read_enabled:
                     raise ValueError("Start the panel with --enable-instagram to query profiles.")
+                self._inspect_and_save(cid)
+            elif action == "search-ig":
+                if not self.context.read_enabled:
+                    raise ValueError("Start the panel with --enable-instagram to search Instagram.")
+                query_override = data.get("query", "")
+                if not isinstance(query_override, str) or len(query_override) > 120:
+                    raise ValueError("Invalid search query.")
                 row = store.get_contact(self.context.db, cid)
-                if not row["candidate_username"]:
-                    raise ValueError("Enter @username before inspecting.")
-                result = self.context.provider.inspect(row["candidate_username"])
-                cached = ""
-                if result["photo_url"]:
-                    try:
-                        cached = fetch_avatar(
-                            result["photo_url"], self.context.db.parent / "photos",
-                            cid + "-" + result["pk"]
-                        )
-                    except PublicSafeError:
-                        pass  # Photo failure must not hide the profile or relationship.
-                store.save_profile(self.context.db, cid, self.context.account,
-                                   result, cached)
+                candidates = self.context.provider.search_candidates(
+                    row["full_name"],
+                    row.get("email", ""),
+                    query_override=query_override,
+                )
+                return self._send({
+                    "ok": True,
+                    "candidates": candidates,
+                    "contact": row,
+                })
             elif action == "send-direct":
                 if not self.context.direct_enabled:
                     raise ValueError("Direct disabled; launch with --enable-dm and fixed message file.")
                 if data.get("confirm") is not True:
                     raise ValueError("Explicit send confirmation required.")
-                import os
-                if not (os.environ.get("BUSCAINSTA_IG_TEST_LOGIN")
-                        and os.environ.get("BUSCAINSTA_IG_TEST_PASSWORD")):
+                has_creds = (
+                    (os.environ.get("BUSCAINSTA_IG_TEST_LOGIN")
+                     and os.environ.get("BUSCAINSTA_IG_TEST_PASSWORD"))
+                    or (hasattr(self.context.provider, "has_credentials")
+                        and self.context.provider.has_credentials())
+                )
+                if not has_creds:
                     raise ValueError("Instagram test account credentials missing.")
                 attempt_id = uuid.uuid4().hex
                 sha = hashlib.sha256(self.context.message.encode("utf-8")).hexdigest()
@@ -201,7 +273,10 @@ class Handler(BaseHTTPRequestHandler):
                 store.finish_dm(self.context.db, cid, attempt_id, True, message_id)
             else:
                 return self._send({"error": "Unknown action."}, 404)
-            return self._send({"ok": True, "contact": store.get_contact(self.context.db, cid)})
+            payload = {"ok": True, "contact": store.get_contact(self.context.db, cid)}
+            if warning:
+                payload["warning"] = warning
+            return self._send(payload)
         except (ValueError, PublicSafeError) as exc:
             return self._send({"error": str(exc)}, 409)
         except Exception:
@@ -220,6 +295,7 @@ def main():
     parser.add_argument("--enable-instagram", action="store_true", help="Allow individual read-only Instagram lookups")
     parser.add_argument("--enable-dm", action="store_true", help="Allow explicitly authorized single Direct messages")
     parser.add_argument("--message-file", type=Path, help="Private text file defining the one fixed Direct message")
+    parser.add_argument("--env-file", type=Path, default=Path(".env"), help="Optional .env file with Instagram credentials")
     args = parser.parse_args()
 
     if args.enable_dm and not args.enable_instagram:
@@ -229,6 +305,10 @@ def main():
     if args.port < 1024 or args.port > 65535:
         parser.error("Choose a local TCP port between 1024 and 65535.")
     try:
+        for key, val in load_env_file(args.env_file).items():
+            if key in ("BUSCAINSTA_IG_TEST_LOGIN", "BUSCAINSTA_IG_TEST_PASSWORD") and val:
+                os.environ.setdefault(key, val)
+
         db = store.check_private_path(args.db)
         store.setup(db)
         if args.contacts:
@@ -238,7 +318,6 @@ def main():
         if args.legacy_panel:
             import sqlite3
             from .legacy_import import import_legacy
-            # Create an online, consistent one-time backup before migration.
             if db.exists():
                 backup = db.with_name(db.name + ".before-legacy.backup")
                 if not backup.exists():
@@ -252,17 +331,24 @@ def main():
             if not message or len(message) > 1000:
                 parser.error("Fixed message file must have 1–1000 characters.")
         context = SimpleNamespace(
-            db=db, account=args.account.strip()[:100],
-            read_enabled=args.enable_instagram, direct_enabled=args.enable_dm,
-            message=message, csrf=secrets.token_urlsafe(24),
-            provider=InstagramActions(args.account),
+            db=db,
+            account=args.account.strip()[:100],
+            read_enabled=args.enable_instagram,
+            direct_enabled=args.enable_dm,
+            message=message,
+            csrf=load_or_create_csrf(db),
+            provider=InstagramActions(
+                args.account,
+                session_dir=db.parent / "sessions",
+                env_file=args.env_file,
+            ),
         )
         with ThreadingHTTPServer(("127.0.0.1", args.port), Handler) as server:
             server.context = context
             print(f"Painel BuscaInsta: http://127.0.0.1:{server.server_port}/")
             print("Local-only. Direct:", "enabled" if args.enable_dm else "disabled")
             server.serve_forever()
-    except (ValueError, OSError) as exc:
+    except (ValueError, OSError):
         parser.exit(2, "ERROR: Check private local paths, CSV files or TCP port.\n")
 
 

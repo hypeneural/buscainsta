@@ -5,81 +5,89 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <meta name="referrer" content="no-referrer"/>
 <meta name="csrf-token" content="__CSRF_TOKEN__"/>
+<link rel="icon" href="/favicon.ico" type="image/svg+xml"/>
 <title>BuscaInsta · Revisão de clientes</title>
 <style>
-:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#172b40;background:#f4f6f9;font-size:14px}
-*{box-sizing:border-box}body{margin:0}header{background:#fff;border-bottom:1px solid #dbe1e8;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-h1{margin:0;font-size:23px;font-weight:750}h2{font-size:16px;margin:0 0 10px}.sub{color:#627286;margin-top:4px}
-main{max-width:1620px;margin:auto;padding:22px}.panel{background:white;border:1px solid #e0e5ec;border-radius:12px;padding:16px;margin-bottom:16px}
-.note{background:#f0f5fa;padding:10px;border-radius:8px;color:#314d6f}
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#e8eef8;background:#090d16;color-scheme:dark;font-size:14px}
+*{box-sizing:border-box}body{margin:0;background:#090d16;color:#edf2fa}
+header{background:#101827;border-bottom:1px solid #243144;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:23px;font-weight:750;color:#f5f8fc}h2{font-size:16px;margin:0 0 10px}
+.sub,small{color:#9faec3;margin-top:4px}
+main{max-width:1660px;margin:auto;padding:22px}
+.panel{background:#111b2b;border:1px solid #253249;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 4px 20px rgba(0,0,0,.14)}
+.note{background:#1e2d41;padding:10px 12px;border-radius:8px;color:#d3e7f9;margin:0 0 8px}
 .tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-input[type=search]{min-width:280px;max-width:480px;width:45%;padding:10px;border:1px solid #b7c4d4;border-radius:8px;font-size:14px}
-button{background:#f2f5fa;border:1px solid #b8c5d3;border-radius:8px;padding:7px 10px;cursor:pointer;font-weight:600;color:#173751}
-button.primary{background:#1d4f84;border-color:#1d4f84;color:#fff}button.danger{background:#fff4ef;border-color:#d4a293;color:#8c311d}
-button:disabled{opacity:.42;cursor:not-allowed}
-small{color:#64758a}.table-wrap{overflow-x:auto}.table-wrap table{border-collapse:collapse;width:100%;min-width:1330px}
-th,td{padding:10px 8px;border-bottom:1px solid #e5e9ee;text-align:left;vertical-align:middle;white-space:nowrap}
-th{background:#f6f8fb;position:sticky;top:0;color:#344b66;font-size:12px}
-td .muted{color:#738194}td .small{font-size:12px}
-img.avatar{width:48px;height:48px;border-radius:50%;object-fit:cover;background:#e6ecf1;border:1px solid #dae2ea}
-.actions{display:flex;gap:5px;flex-wrap:wrap;min-width:190px}
-label.toggle{display:flex;align-items:center;gap:5px;white-space:nowrap}
-label.toggle input{width:16px;height:16px}
-.status{font-size:12px;border-radius:16px;padding:4px 8px;background:#edf1f5;display:inline-block}
-.status.yes{color:#126342;background:#e7f7ed}.status.no{color:#8c312b;background:#fff0ef}.status.unknown{color:#5b6878}
-#notice{min-height:30px;color:#174c76;font-weight:600}
-#notice.error{color:#b1272c}
-a{color:#1e64a2;text-decoration:none}a:hover{text-decoration:underline}
-footer{padding:16px 0;color:#627286}#page{font-weight:700}code{background:#e9edf3;padding:3px;border-radius:5px}
-
-/* Updated manager view: preserve the dark look of the existing HTML report. */
-:root{color:#e8eef8;background:#090d16;color-scheme:dark}
-body{background:#090d16;color:#edf2fa}
-header{background:#101827;border-bottom:1px solid #243144}
-h1{color:#f5f8fc}.sub,small{color:#9faec3}
-.panel{background:#111b2b;border:1px solid #253249;box-shadow:0 4px 20px rgba(0,0,0,.1)}
-.note{background:#1e2d41;color:#d3e7f9}
-input[type=search],select{background:#0b1221;border:1px solid #42526b;color:#f4f7fc;padding:10px;border-radius:8px}
-th{background:#1d2c42;color:#bed0e5}
-td,th{border-color:#26364c}
-button{background:#203149;color:#e5edf8;border-color:#3d506a}
-button.primary{background:#1471be;border-color:#1471be}
+input[type=search],input[type=text],select{background:#0b1221;border:1px solid #42526b;color:#f4f7fc;padding:9px 11px;border-radius:8px;font-size:14px}
+input[type=search]{min-width:260px;max-width:420px;width:34%}
+select{min-width:120px}
+button{background:#203149;border:1px solid #3d506a;border-radius:8px;padding:7px 10px;cursor:pointer;font-weight:600;color:#e5edf8;transition:background .15s,border-color .15s}
+button:hover:not(:disabled){background:#2a4060;border-color:#567296}
+button.primary{background:#1471be;border-color:#1471be;color:#fff}
+button.primary:hover:not(:disabled){background:#1982d8;border-color:#1982d8}
+button.subtle{background:#183049;border-color:#2f5b88;color:#b8dcff}
 button.danger{background:#553042;color:#ffe3e5;border-color:#a44c5b}
-a{color:#77c5ff}
-.status{background:#374256;color:#dce5f3}
-.status.yes{background:#134734;color:#b9f5cf}
-.status.no{background:#52333a;color:#ffc1c1}
+button:disabled{opacity:.38;cursor:not-allowed}
+.table-wrap{overflow-x:auto}.table-wrap table{border-collapse:collapse;width:100%;min-width:1260px}
+th,td{padding:10px 8px;border-bottom:1px solid #26364c;text-align:left;vertical-align:middle;white-space:nowrap}
+th{background:#1d2c42;position:sticky;top:0;color:#bed0e5;font-size:12px;z-index:1}
+td .muted{color:#99a6b9}td .small{font-size:12px}
+img.avatar{width:50px;height:50px;border-radius:50%;object-fit:cover;background:#1b283b;border:2px solid #334968;display:block}
+.avatar-empty{width:50px;height:50px;border-radius:50%;background:#162235;border:1px dashed #374b67;display:flex;align-items:center;justify-content:center;color:#7e90a8;font-size:11px}
+.actions{display:flex;gap:6px;flex-wrap:wrap;min-width:210px}
+label.toggle{display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer}
+label.toggle input{width:16px;height:16px}
+.status{font-size:12px;border-radius:16px;padding:4px 9px;background:#374256;color:#dce5f3;display:inline-block;font-weight:600}
+.status.yes{background:#134734;color:#b9f5cf;border:1px solid #247a58}
+.status.no{background:#52333a;color:#ffc1c1;border:1px solid #8a4956}
 .status.unknown{background:#354052;color:#c8d3e2}
-td .muted{color:#99a6b9}
-#notice{color:#90d8ff}#notice.error{color:#ff9ea1}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
-.stat-card{background:#111b2b;border:1px solid #263651;border-radius:12px;padding:16px}
-.stat-value{font-size:27px;font-weight:800;color:#e6f0fb}
+.verify-group{display:inline-flex;align-items:center;gap:6px}
+.icon-btn{width:34px;height:34px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;line-height:1;background:#182436;border:1px solid #394b65;color:#9fb0c7}
+.icon-btn.check:hover:not(:disabled){border-color:#2ea06d;color:#b9f5cf;background:#123829}
+.icon-btn.reject:hover:not(:disabled){border-color:#d14d63;color:#ffc1c1;background:#3d1d27}
+.icon-btn.check.active{background:#157347;border-color:#3dd58c;color:#ffffff;box-shadow:0 0 0 2px rgba(61,213,140,.22)}
+.icon-btn.reject.active{background:#8f2436;border-color:#ff758f;color:#ffffff;box-shadow:0 0 0 2px rgba(255,117,143,.22)}
+.rejected-handle{text-decoration:line-through;opacity:.68}
+.header-badges{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#notice{min-height:28px;color:#90d8ff;font-weight:600;margin-bottom:6px}
+#notice.error{color:#ff9ea1}
+a{color:#77c5ff;text-decoration:none}a:hover{text-decoration:underline}
+footer{padding:16px 0;color:#8fa0b5;font-size:12px}#page{font-weight:700}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:16px}
+.stat-card{background:#111b2b;border:1px solid #263651;border-radius:12px;padding:15px}
+.stat-value{font-size:26px;font-weight:800;color:#e6f0fb}
 .stat-label{color:#a9b7ca;font-size:12px;margin-top:4px}
-.vip-pill{display:inline-block;padding:3px 7px;margin-right:5px;border-radius:6px;background:#263c57;color:#d3e5ff;font-size:11px}
+.vip-pill{display:inline-block;padding:3px 7px;margin-right:5px;border-radius:6px;background:#263c57;color:#d3e5ff;font-size:11px;font-weight:600}
 .vip-pill.P0{background:#76364c;color:#ffc9d6}
 .vip-pill.P1{background:#51417c;color:#ddccff}
 .vip-pill.P2{background:#194f49;color:#b9f3e8}
-.vip-sub{color:#b4c3d7;font-size:11px;white-space:normal;max-width:330px}
-select{min-width:140px}
+.vip-sub{color:#b4c3d7;font-size:11px;white-space:normal;max-width:340px}
+dialog{background:#111b2b;color:#edf2fa;border:1px solid #354a69;border-radius:14px;padding:20px;max-width:760px;width:94vw;box-shadow:0 18px 50px rgba(0,0,0,.65)}
+dialog::backdrop{background:rgba(4,8,16,.76)}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.modal-search{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.modal-search input{flex:1;min-width:220px}
+.cand-list{display:flex;flex-direction:column;gap:10px;max-height:56vh;overflow-y:auto}
+.cand-card{background:#0c1422;border:1px solid #273954;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.cand-meta{display:flex;flex-direction:column;gap:4px}
+.cand-pills{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 @media(max-width:800px){main{padding:12px}header{padding:14px}input[type=search]{width:100%;min-width:100px}.tools{gap:8px}.stats-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 <header>
 <div><h1>BuscaInsta <span style="color:#5480ac">· Painel local</span></h1>
-<div class="sub">Revisão de perfis, seguidores, foto e Direct individual</div></div>
-<div id="account" class="sub">Carregando configuração…</div>
+<div class="sub">Revisão rápida de perfis, seguidores, catálogo de fotos e Direct individual</div></div>
+<div id="account" class="header-badges">Carregando configuração…</div>
 </header>
 <main>
 <section id="stats" class="stats-grid" aria-label="Indicadores do painel"></section>
 <section class="panel">
 <h2>Mensagem fixa do Direct</h2>
 <p class="note" id="message">Carregando…</p>
-<p class="sub">O painel apenas envia a mensagem após confirmar manualmente o perfil, assinalar a permissão de contato e aprovar cada envio. Aceite da API não comprova leitura/entrega.</p>
+<p class="sub" style="margin:0">Todos os contatos já estão autorizados. Marque o perfil com <strong>✓</strong>, confira foto/seguidores e aprove cada envio individualmente. Aceite da API não comprova leitura/entrega.</p>
 </section>
 <section class="panel tools">
-<input type="search" id="search" placeholder="Buscar por nome, ID ou @Instagram" aria-label="Buscar contatos"/>
+<input type="search" id="search" placeholder="Buscar por nome, telefone, ID ou @Instagram" aria-label="Buscar contatos"/>
 <button id="searchBtn" class="primary">Pesquisar</button>
 <label class="toggle">Prioridade
 <select id="segment" aria-label="Filtrar prioridade">
@@ -89,9 +97,10 @@ select{min-width:140px}
 <option value="P4">P4</option><option value="Outros">Outros</option>
 </select></label>
 <label class="toggle"><input type="checkbox" id="onlyInstagram"/> Com Instagram</label>
-<label class="toggle"><input type="checkbox" id="onlyVerified"/> Conferidos</label>
+<label class="toggle"><input type="checkbox" id="onlyVerified"/> Conferidos (✓)</label>
+<button id="batchPhotosBtn" class="subtle" type="button" title="Atualiza fotos e status de seguidores dos perfis desta página">📸 Atualizar fotos da página</button>
 <span id="summary"></span><span style="flex:1"></span>
-<button id="prev">Anterior</button><span id="page">1</span><button id="next">Próxima</button>
+<button id="prev" type="button">Anterior</button><span id="page">1</span><button id="next" type="button">Próxima</button>
 </section>
 <section id="notice" aria-live="polite"></section>
 <section class="panel table-wrap">
@@ -99,62 +108,300 @@ select{min-width:140px}
 <thead><tr>
 <th>Foto</th><th>Cliente / ranking VIP / ensaios</th><th>Perfil / situação</th>
 <th>Nos segue?</th><th>Seguimos?</th><th>Conferido?</th>
-<th>Permissão Direct</th><th>Último Direct / horário</th><th>Ações</th>
+<th>Último Direct / horário</th><th>Ações</th>
 </tr></thead>
-<tbody id="rows"><tr><td colspan="9">Carregando dados…</td></tr></tbody>
+<tbody id="rows"><tr><td colspan="8">Carregando dados…</td></tr></tbody>
 </table>
 </section>
-<footer>Dados privados no computador. Resultados de busca por nome ou sugestão não são comprovação de identidade. Estado “desconhecido” não significa “não segue”.</footer>
+<footer>Dados privados no computador. Resultados de busca por nome ou sugestão não são comprovação de identidade. Estado “Desconhecido” não significa “Não segue”.</footer>
 </main>
+
+<dialog id="searchDialog" aria-label="Pesquisar perfil no Instagram">
+  <div class="modal-head">
+    <div>
+      <h2 id="modalTitle" style="margin:0">Pesquisar cliente no Instagram</h2>
+      <div id="modalSub" class="sub"></div>
+    </div>
+    <button id="modalClose" type="button">Fechar ✕</button>
+  </div>
+  <div class="modal-search">
+    <input type="text" id="modalQuery" placeholder="Nome, sobrenome ou @username"/>
+    <button id="modalRunSearch" type="button" class="primary">🔍 Pesquisar no Instagram</button>
+  </div>
+  <div id="modalStatus" class="sub" style="margin-bottom:10px"></div>
+  <div id="modalResults" class="cand-list"></div>
+</dialog>
+
 <script>
 "use strict";
-const csrf=document.querySelector('meta[name="csrf-token"]').content;
+let csrf=document.querySelector('meta[name="csrf-token"]').content;
 const tbody=document.getElementById("rows");
-let config={},page=1,total=0,query="",segment="",instagramOnly=false,verifiedOnly=false;
+let config={},currentItems=[],page=1,total=0,query="",segment="",instagramOnly=false,verifiedOnly=false;
+let batchRunning=false,activeModalContact=null;
 const byId=id=>document.getElementById(id);
 const el=(name,text,classname)=>{const node=document.createElement(name);if(text!==undefined&&text!==null)node.textContent=String(text);if(classname)node.className=classname;return node;};
 const td=(tr)=>{const x=el("td");tr.appendChild(x);return x;};
 const message=(s,bad=false)=>{const n=byId("notice");n.textContent=s;n.className=bad?"error":"";};
-async function api(url,opts){const response=await fetch(url,{cache:"no-store",...opts});let data={};try{data=await response.json()}catch{}if(!response.ok)throw new Error(data.error||"Operação indisponível");return data;}
-async function post(id,action,payload){try{message("Executando…");await api("/api/contacts/"+encodeURIComponent(id)+"/"+action,{method:"POST",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},body:JSON.stringify(payload)});message("Atualizado.");await Promise.all([load(),refreshStats()]);}catch(e){message(e.message,true);await load();}}
+const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+
+async function api(url,opts={}){
+ const response=await fetch(url,{cache:"no-store",...opts});
+ let data={};try{data=await response.json();}catch{}
+ if(response.status===403&&opts.method==="POST"&&!opts._retried){
+  try{
+   const fresh=await fetch("/api/config",{cache:"no-store"}).then(r=>r.json());
+   if(fresh&&fresh.csrf_token){
+    csrf=fresh.csrf_token;
+    const headers={...(opts.headers||{}),"X-CSRF-Token":csrf};
+    return await api(url,{...opts,headers,_retried:true});
+   }
+  }catch{}
+ }
+ if(!response.ok)throw new Error(data.error||"Operação indisponível");
+ return data;
+}
+
+async function post(id,action,payload,silent=false){
+ try{
+  if(!silent)message("Executando…");
+  const res=await api("/api/contacts/"+encodeURIComponent(id)+"/"+action,{
+   method:"POST",
+   headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},
+   body:JSON.stringify(payload)
+  });
+  if(!silent){
+   message(res.warning?("Atualizado com aviso: "+res.warning):"Atualizado.");
+   await Promise.all([load(),refreshStats()]);
+  }
+  return res;
+ }catch(e){
+  if(!silent){message(e.message,true);await load();}
+  throw e;
+ }
+}
+
 function statusLabel(v){return v==="yes"?"Sim":v==="no"?"Não":"Desconhecido";}
 function stamp(v){if(!v)return "—";const d=new Date(v);return isNaN(d)?"—":d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});}
-function button(parent,label,callback,disabled=false,cls=""){const b=el("button",label,cls);b.type="button";b.disabled=disabled;b.onclick=callback;parent.appendChild(b);return b;}
-function toggle(parent,label,checked,disabled,callback){const wrapper=el("label",undefined,"toggle");const c=el("input");c.type="checkbox";c.checked=!!checked;c.disabled=disabled;c.onchange=()=>callback(c.checked);wrapper.append(c,el("span",label));parent.appendChild(wrapper);}
+function button(parent,label,callback,disabled=false,cls="",title=""){const b=el("button",label,cls);b.type="button";b.disabled=disabled;if(title)b.title=title;b.onclick=callback;parent.appendChild(b);return b;}
+
+function renderHeaderConfig(){
+ const box=byId("account");box.replaceChildren();
+ box.appendChild(el("span","Conta: "+(config.account||"—"),"status"));
+ box.appendChild(el("span","Consulta: "+(config.read_enabled?"ativada":"desativada"),"status "+(config.read_enabled?"yes":"no")));
+ box.appendChild(el("span","Direct: "+(config.direct_enabled?"ativado":"desativado"),"status "+(config.direct_enabled?"yes":"no")));
+ byId("batchPhotosBtn").disabled=!config.read_enabled&&!batchRunning;
+}
+
 function renderItem(item){
  const tr=el("tr");
- const pic=td(tr);if(item.photo_local){const img=el("img");img.className="avatar";img.alt="Foto do perfil";img.loading="lazy";img.src="/api/avatar?cid="+encodeURIComponent(item.contact_id);pic.appendChild(img);}else pic.appendChild(el("span","Sem foto","muted small"));
+ const pic=td(tr);
+ if(item.photo_local){
+  const img=el("img");img.className="avatar";img.alt="Foto";img.loading="lazy";
+  img.src="/api/avatar?cid="+encodeURIComponent(item.contact_id)+"&v="+encodeURIComponent(item.checked_at||"1");
+  pic.appendChild(img);
+ }else{
+  pic.appendChild(el("div","Sem foto","avatar-empty"));
+ }
+
  const person=td(tr);person.appendChild(el("strong",item.full_name));
- const labels=el("div",undefined,"small");if(item.vip_rank)labels.appendChild(el("span","#"+item.vip_rank,"vip-pill"));if(item.vip_segment)labels.appendChild(el("span",item.vip_segment,"vip-pill "+item.vip_segment));if(item.vip_score)labels.appendChild(el("span","Score "+item.vip_score,"vip-pill"));person.appendChild(labels);
- person.appendChild(el("div","CRM: "+(item.crm_id||"não disponível")+" | Ensaios Natal: "+(item.natal_sessions||0)+" | Pedidos históricos: "+(item.total_orders||0)+" | Último Natal: "+(item.last_natal_year||"—"),"vip-sub"));
+ const labels=el("div",undefined,"small");
+ if(item.vip_rank)labels.appendChild(el("span","#"+item.vip_rank,"vip-pill"));
+ if(item.vip_segment)labels.appendChild(el("span",item.vip_segment,"vip-pill "+item.vip_segment));
+ if(item.vip_score)labels.appendChild(el("span","Score "+item.vip_score,"vip-pill"));
+ person.appendChild(labels);
+ person.appendChild(el("div","CRM: "+(item.crm_id||"não disponível")+" | Ensaios Natal: "+(item.natal_sessions||0)+" | Pedidos: "+(item.total_orders||0)+" | Último Natal: "+(item.last_natal_year||"—"),"vip-sub"));
  person.appendChild(el("div","LTV: "+(item.ltv_display||"não disponível")+" | Natal 2026: "+(item.natal_2026||"revalidar"),"vip-sub"));
  person.appendChild(el("div",item.contact_id,"muted small"));
- if(item.phone){const phoneDigits=item.phone.replace(/[^0-9]/g,"");if(phoneDigits){const wa=el("a",item.phone);wa.href="https://wa.me/"+phoneDigits;wa.target="_blank";wa.rel="noopener noreferrer";person.appendChild(wa);}else person.appendChild(el("div",item.phone,"small"));}else person.appendChild(el("div","Sem telefone","small"));
+ if(item.phone){
+  const phoneDigits=item.phone.replace(/[^0-9]/g,"");
+  if(phoneDigits){const wa=el("a",item.phone);wa.href="https://wa.me/"+phoneDigits;wa.target="_blank";wa.rel="noopener noreferrer";person.appendChild(wa);}
+  else person.appendChild(el("div",item.phone,"small"));
+ }else person.appendChild(el("div","Sem telefone","small"));
  person.appendChild(el("div",item.email||"Sem e-mail","muted small"));
- const profile=td(tr);if(item.candidate_username){const link=el("a","@"+item.candidate_username);link.href="https://www.instagram.com/"+encodeURIComponent(item.candidate_username)+"/";link.target="_blank";link.rel="noopener noreferrer";profile.append(link,el("div",item.instagram_name||item.discovery_method||"Candidato","small"));}else profile.append(el("span","Não encontrado","muted"));
- profile.append(el("div",item.manually_verified?"Marcado como conferido pelo operador":item.status,"muted small"));
+
+ const isRejected=item.status==="rejected";
+ const isVerified=!!item.manually_verified;
+ const profile=td(tr);
+ if(item.candidate_username){
+  const link=el("a","@"+item.candidate_username,isRejected?"rejected-handle":"");
+  link.href="https://www.instagram.com/"+encodeURIComponent(item.candidate_username)+"/";
+  link.target="_blank";link.rel="noopener noreferrer";
+  profile.append(link,el("div",item.instagram_name||item.discovery_method||"Candidato","small"));
+ }else{
+  profile.append(el("span","Não encontrado","muted"));
+ }
+ const statusText=isVerified?"✓ Confirmado pelo operador":isRejected?"✕ Perfil descartado":(item.candidate_username?"Aguardando conferência":"Sem @ sugerido");
+ profile.append(el("div",statusText,"muted small"));
+
  const followers=td(tr),followed=td(tr);
- for(const [cell,val] of [[followers,item.follows_us],[followed,item.we_follow]]){const badge=el("span",statusLabel(val),"status "+val);cell.append(badge,el("div",item.checked_account?("Conta: "+item.checked_account):"Não consultado","muted small"));}
- const verified=td(tr);toggle(verified,"É o cliente",!!item.manually_verified,!item.candidate_username,(v)=>post(item.contact_id,"verify",{value:v}));
- const permission=td(tr);toggle(permission,"Autorizado",!!item.dm_permitted,!item.manually_verified,(v)=>post(item.contact_id,"direct-permission",{value:v}));
- const delivery=td(tr);delivery.append(el("div",item.last_dm_status||"never","small"),el("div",item.last_dm_accepted_at?"Aceite: "+stamp(item.last_dm_accepted_at):item.last_dm_attempt_at?"Tentativa: "+stamp(item.last_dm_attempt_at):"Nunca enviado","muted small"));
+ for(const [cell,val] of [[followers,item.follows_us],[followed,item.we_follow]]){
+  const badge=el("span",statusLabel(val),"status "+val);
+  cell.append(badge,el("div",item.checked_account?("Conta: "+item.checked_account):"Não consultado","muted small"));
+ }
+
+ const verified=td(tr);
+ const vGroup=el("div",undefined,"verify-group");
+ const btnCheck=button(
+  vGroup,"✓",
+  ()=>post(item.contact_id,"verify",{value:!isVerified,auto_permit_dm:true}),
+  !item.candidate_username,
+  "icon-btn check"+(isVerified?" active":""),
+  isVerified?"Confirmado (clique para desmarcar)":"Confirmar que é o cliente"
+ );
+ btnCheck.setAttribute("aria-label","Confirmar perfil");
+ const btnReject=button(
+  vGroup,"✕",
+  ()=>post(item.contact_id,"reject",{value:!isRejected}),
+  !item.candidate_username,
+  "icon-btn reject"+(isRejected?" active":""),
+  isRejected?"Rejeitado (clique para restaurar)":"Marcar que não é o cliente"
+ );
+ btnReject.setAttribute("aria-label","Rejeitar perfil");
+ verified.appendChild(vGroup);
+
+ const delivery=td(tr);
+ delivery.append(
+  el("div",item.last_dm_status==="never"?"Nunca enviado":item.last_dm_status,"small"),
+  el("div",item.last_dm_accepted_at?"Aceite: "+stamp(item.last_dm_accepted_at):item.last_dm_attempt_at?"Tentativa: "+stamp(item.last_dm_attempt_at):"—","muted small")
+ );
+
  const actions=td(tr),wrap=el("div",undefined,"actions");actions.appendChild(wrap);
- button(wrap,"Editar @",()=>{const value=prompt("Informe o @username candidato",item.candidate_username||"");if(value!==null&&value.trim())post(item.contact_id,"candidate",{username:value.trim()});});
- button(wrap,"Consultar foto/seguidores",()=>post(item.contact_id,"inspect",{}),!config.read_enabled||!item.candidate_username);
- const canSend=config.direct_enabled&&item.manually_verified&&item.dm_permitted&&item.instagram_pk&&item.checked_account===config.account&&item.last_dm_status==="never";
- button(wrap,"Enviar Direct",()=>{if(confirm("Enviar esta mensagem fixa ao perfil @"+item.candidate_username+"?\n\n"+config.fixed_message+"\n\nO envio pode falhar ou virar uma solicitação de mensagem."))post(item.contact_id,"send-direct",{confirm:true});},!canSend,"danger");
+ button(wrap,"🔍 Pesquisar IG",()=>openSearchModal(item),!config.read_enabled,"subtle","Buscar candidatos no Instagram via instagrapi");
+ button(wrap,"🔄 Foto/Status",()=>post(item.contact_id,"inspect",{}),!config.read_enabled||!item.candidate_username,"","Atualizar foto e relação de seguidores");
+ button(wrap,"Editar @",()=>{
+  const value=prompt("Informe o @username candidato",item.candidate_username||"");
+  if(value!==null&&value.trim())post(item.contact_id,config.read_enabled?"select-candidate":"candidate",{username:value.trim()});
+ },false,"","Informar @ manualmente");
+ const canSend=config.direct_enabled&&isVerified&&item.dm_permitted&&item.instagram_pk&&item.checked_account===config.account&&item.last_dm_status==="never";
+ button(wrap,"Enviar Direct",()=>{
+  if(confirm("Enviar esta mensagem fixa ao perfil @"+item.candidate_username+"?\n\n"+config.fixed_message+"\n\nO envio pode falhar ou virar uma solicitação de mensagem."))
+   post(item.contact_id,"send-direct",{confirm:true});
+ },!canSend,"danger","Enviar mensagem fixa individual");
  return tr;
 }
-async function load(){
- try{const v=await api("/api/contacts?"+new URLSearchParams({q:query,page:String(page),segment:segment,instagram:String(instagramOnly),verified:String(verifiedOnly)}));total=v.total;tbody.replaceChildren();if(!v.items.length){const tr=el("tr");td(tr).textContent="Nenhum cliente encontrado.";tbody.appendChild(tr);}else for(const item of v.items)tbody.appendChild(renderItem(item));byId("summary").textContent=total+" contatos";byId("page").textContent="Página "+v.page;byId("prev").disabled=page<=1;byId("next").disabled=page*v.limit>=total;}catch(e){message(e.message,true);}
+
+async function openSearchModal(item){
+ activeModalContact=item;
+ const dlg=byId("searchDialog");
+ byId("modalTitle").textContent="Pesquisar Instagram · "+item.full_name;
+ byId("modalSub").textContent=(item.vip_segment?("Segmento "+item.vip_segment+" · "):"")+(item.phone||"Sem telefone")+" · "+(item.email||"Sem e-mail");
+ byId("modalQuery").value=item.full_name;
+ byId("modalResults").replaceChildren();
+ byId("modalStatus").textContent="Consultando seguidores e diretório do Instagram…";
+ if(!dlg.open)dlg.showModal();
+ await runModalSearch("");
 }
-async function refreshStats(){const data=await api("/api/stats");
- const metrics=[["Total de clientes",data.total],["Instagram encontrado",data.candidates],["Conferidos pelo gestor",data.verified],
- ["P0 · VIP",data.segments.P0||0],["P1 · Recorrentes",data.segments.P1||0],
- ["P2 · Histórico",data.segments.P2||0],["Clientes que nos seguem",data.follows_us],
- ["Direct aceito pela API",data.dm_accepted],["Direct a revisar",data.dm_unknown]];
- const pane=byId("stats");pane.replaceChildren();for(const [label,count] of metrics){const card=el("div",undefined,"stat-card");card.appendChild(el("div",Number(count||0).toLocaleString("pt-BR"),"stat-value"));card.appendChild(el("div",label,"stat-label"));pane.appendChild(card);}}
-async function init(){try{config=await api("/api/config");byId("message").textContent=config.fixed_message;byId("account").textContent="Conta: "+config.account+" | Consulta: "+(config.read_enabled?"ativada":"desativada")+" | Direct: "+(config.direct_enabled?"ativado":"desativado");await Promise.all([refreshStats(),load()]);}catch(e){message(e.message,true);}}
+
+async function runModalSearch(customQuery){
+ if(!activeModalContact)return;
+ const list=byId("modalResults"),st=byId("modalStatus"),runBtn=byId("modalRunSearch");
+ runBtn.disabled=true;list.replaceChildren();
+ st.textContent="Buscando perfis compatíveis via instagrapi…";
+ try{
+  const res=await api("/api/contacts/"+encodeURIComponent(activeModalContact.contact_id)+"/search-ig",{
+   method:"POST",
+   headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},
+   body:JSON.stringify({query:customQuery||""})
+  });
+  const cands=res.candidates||[];
+  if(!cands.length){
+   st.textContent="Nenhum candidato encontrado para esta busca. Tente variar sobrenome ou @.";
+   return;
+  }
+  st.textContent=cands.length+" candidato(s) encontrado(s). Clique em 'Usar @ e puxar foto' para aplicar:";
+  for(const c of cands){
+   const card=el("div",undefined,"cand-card");
+   const meta=el("div",undefined,"cand-meta");
+   const topLine=el("div",undefined,"cand-pills");
+   const link=el("a","@"+c.username);
+   link.href=c.profile_url;link.target="_blank";link.rel="noopener noreferrer";
+   link.style.fontWeight="700";link.style.fontSize="15px";
+   topLine.appendChild(link);
+   topLine.appendChild(el("span","Compatibilidade "+c.score+"%","vip-pill "+(c.score>=75?"P2":"")));
+   if(c.is_private==="yes")topLine.appendChild(el("span","Privado","status unknown"));
+   meta.appendChild(topLine);
+   meta.appendChild(el("div",(c.full_name||"Sem nome exibido")+" — "+(c.match_reason||""),"small"));
+   const relLine=el("div",undefined,"cand-pills");
+   relLine.appendChild(el("span","Nos segue: "+statusLabel(c.follows_us),"status "+c.follows_us));
+   relLine.appendChild(el("span","Seguimos: "+statusLabel(c.we_follow),"status "+c.we_follow));
+   meta.appendChild(relLine);
+   card.appendChild(meta);
+   button(card,"Usar @ e puxar foto",async()=>{
+    byId("searchDialog").close();
+    await post(activeModalContact.contact_id,"select-candidate",{username:c.username});
+   },false,"primary");
+   list.appendChild(card);
+  }
+ }catch(e){
+  st.textContent="Erro na pesquisa: "+e.message;
+ }finally{
+  runBtn.disabled=false;
+ }
+}
+
+async function runBatchPhotos(){
+ if(batchRunning){batchRunning=false;message("Interrompendo atualização da página…");return;}
+ const targets=currentItems.filter(it=>it.candidate_username&&it.status!=="rejected"&&(!it.photo_local||it.checked_account!==config.account)).slice(0,15);
+ if(!targets.length){message("Todos os perfis candidatos desta página já possuem foto/status atualizados.");return;}
+ batchRunning=true;
+ const btn=byId("batchPhotosBtn");
+ btn.textContent="⏹ Parar atualização";
+ let done=0;
+ try{
+  for(const it of targets){
+   if(!batchRunning)break;
+   done++;
+   message("Atualizando "+done+"/"+targets.length+": @"+it.candidate_username+"…");
+   try{await post(it.contact_id,"inspect",{},true);}catch{}
+   await load();
+   if(done<targets.length&&batchRunning)await sleep(1500);
+  }
+  await refreshStats();
+  message(batchRunning?("Catálogo atualizado: "+done+" perfil(is) consultado(s)."):"Atualização pausada pelo operador.");
+ }finally{
+  batchRunning=false;
+  btn.textContent="📸 Atualizar fotos da página";
+ }
+}
+
+async function load(){
+ try{
+  const v=await api("/api/contacts?"+new URLSearchParams({q:query,page:String(page),segment:segment,instagram:String(instagramOnly),verified:String(verifiedOnly)}));
+  total=v.total;currentItems=v.items||[];tbody.replaceChildren();
+  if(!currentItems.length){const tr=el("tr");const cell=td(tr);cell.colSpan=8;cell.textContent="Nenhum cliente encontrado.";tbody.appendChild(tr);}
+  else for(const item of currentItems)tbody.appendChild(renderItem(item));
+  byId("summary").textContent=total+" contatos";byId("page").textContent="Página "+v.page;
+  byId("prev").disabled=page<=1;byId("next").disabled=page*v.limit>=total;
+ }catch(e){message(e.message,true);}
+}
+
+async function refreshStats(){
+ const data=await api("/api/stats");
+ const metrics=[
+  ["Total de clientes",data.total],["Instagram encontrado",data.candidates],["Conferidos (✓)",data.verified],
+  ["P0 · VIP",data.segments.P0||0],["P1 · Recorrentes",data.segments.P1||0],
+  ["Clientes que nos seguem",data.follows_us],["Seguimos",data.we_follow],
+  ["Direct aceito pela API",data.dm_accepted],["Descartados (✕)",data.rejected||0]
+ ];
+ const pane=byId("stats");pane.replaceChildren();
+ for(const [label,count] of metrics){
+  const card=el("div",undefined,"stat-card");
+  card.appendChild(el("div",Number(count||0).toLocaleString("pt-BR"),"stat-value"));
+  card.appendChild(el("div",label,"stat-label"));
+  pane.appendChild(card);
+ }
+}
+
+async function init(){
+ try{
+  config=await api("/api/config");
+  if(config.csrf_token)csrf=config.csrf_token;
+  byId("message").textContent=config.fixed_message;
+  renderHeaderConfig();
+  await Promise.all([refreshStats(),load()]);
+ }catch(e){message(e.message,true);}
+}
+
 byId("searchBtn").onclick=()=>{page=1;query=byId("search").value.trim();load();};
 byId("search").addEventListener("keydown",e=>{if(e.key==="Enter")byId("searchBtn").click();});
 byId("prev").onclick=()=>{if(page>1){page--;load();}};
@@ -162,6 +409,10 @@ byId("next").onclick=()=>{if(page*50<total){page++;load();}};
 byId("segment").onchange=e=>{segment=e.target.value;page=1;load();};
 byId("onlyInstagram").onchange=e=>{instagramOnly=e.target.checked;page=1;load();};
 byId("onlyVerified").onchange=e=>{verifiedOnly=e.target.checked;page=1;load();};
+byId("batchPhotosBtn").onclick=runBatchPhotos;
+byId("modalClose").onclick=()=>byId("searchDialog").close();
+byId("modalRunSearch").onclick=()=>{const q=byId("modalQuery").value.trim();runModalSearch(q===activeModalContact?.full_name?"":q);};
+byId("modalQuery").addEventListener("keydown",e=>{if(e.key==="Enter")byId("modalRunSearch").click();});
 init();
 </script>
 </body></html>

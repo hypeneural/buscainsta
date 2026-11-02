@@ -235,6 +235,7 @@ def dashboard_stats(db_path: Path) -> dict:
             SELECT count(*) AS total,
                    sum(CASE WHEN candidate_username<>'' THEN 1 ELSE 0 END) AS candidates,
                    sum(CASE WHEN manually_verified=1 THEN 1 ELSE 0 END) AS verified,
+                   sum(CASE WHEN status='rejected' THEN 1 ELSE 0 END) AS rejected,
                    sum(CASE WHEN follows_us='yes' THEN 1 ELSE 0 END) AS follows_us,
                    sum(CASE WHEN we_follow='yes' THEN 1 ELSE 0 END) AS we_follow,
                    sum(CASE WHEN last_dm_status='accepted' THEN 1 ELSE 0 END) AS dm_accepted,
@@ -276,7 +277,12 @@ def set_candidate(db_path: Path, cid: str, candidate: str) -> None:
             raise ValueError("Contact not found.")
 
 
-def set_verified(db_path: Path, cid: str, verified: bool) -> None:
+def set_verified(
+    db_path: Path,
+    cid: str,
+    verified: bool,
+    auto_permit_dm: bool = False,
+) -> None:
     with connection(db_path) as db:
         row = db.execute("SELECT candidate_username FROM contacts WHERE contact_id=?",
                          (cid,)).fetchone()
@@ -284,10 +290,34 @@ def set_verified(db_path: Path, cid: str, verified: bool) -> None:
             raise ValueError("Select a candidate profile before manual verification.")
         db.execute("""
             UPDATE contacts SET manually_verified=?,status=?,
-               dm_permitted=CASE WHEN ?=1 THEN dm_permitted ELSE 0 END
+               dm_permitted=CASE
+                   WHEN ?=0 THEN 0
+                   WHEN ?=1 THEN 1
+                   ELSE dm_permitted
+               END
             WHERE contact_id=?
-        """, (int(verified), "manual_checked" if verified else "candidate",
-              int(verified), cid))
+        """, (
+            int(verified),
+            "manual_checked" if verified else ("candidate" if row[0] else "pending"),
+            int(verified),
+            int(auto_permit_dm),
+            cid,
+        ))
+
+
+def set_rejected(db_path: Path, cid: str, rejected: bool) -> None:
+    with connection(db_path) as db:
+        row = db.execute("SELECT candidate_username FROM contacts WHERE contact_id=?",
+                         (cid,)).fetchone()
+        if row is None or (rejected and not row[0]):
+            raise ValueError("Select a candidate profile before rejecting.")
+        db.execute("""
+            UPDATE contacts SET manually_verified=0,dm_permitted=0,status=?
+            WHERE contact_id=?
+        """, (
+            "rejected" if rejected else ("candidate" if row[0] else "pending"),
+            cid,
+        ))
 
 
 def set_dm_permission(db_path: Path, cid: str, allowed: bool) -> None:

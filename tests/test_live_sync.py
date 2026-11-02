@@ -2,16 +2,15 @@
 import csv
 from pathlib import Path
 
-import pytest
-
 from buscainsta.cli import COLUMNS
-from buscainsta.pilot import REVIEW_COLUMNS
 from buscainsta.live_sync import (
+    clean_profile_name,
     contact_to_payload,
     load_env_file,
     match_user_to_contact,
     run_sync,
 )
+from buscainsta.pilot import REVIEW_COLUMNS
 
 
 def create_consented_contacts(path: Path, count: int = 4) -> None:
@@ -99,6 +98,12 @@ def test_load_env_file(tmp_path):
     assert "IGNORED_LINE" not in loaded
 
 
+def test_clean_profile_name_strips_bio_and_titles():
+    assert clean_profile_name("Camila Pereira | Moda & Lifestyle") == "camila pereira"
+    assert clean_profile_name("Dra. Ana Paula de Souza • Estética") == "ana paula souza"
+    assert clean_profile_name("Arq. Juliana Costa - Interiores") == "juliana costa"
+
+
 def test_match_user_to_contact_priority():
     contacts = [
         {"contact_id": "C-001", "full_name": "Juliana Santos"},
@@ -128,6 +133,26 @@ def test_match_user_to_contact_priority():
 
     # No match
     assert match_user_to_contact({"username": "random_user", "full_name": "Desconhecido"}, contacts) is None
+
+
+def test_match_bio_suffix_and_compound_username():
+    contacts = [
+        {"contact_id": "C-201", "full_name": "Camila Silva Pereira", "email": ""},
+        {"contact_id": "C-202", "full_name": "Fernanda Costa Oliveira", "email": ""},
+    ]
+    # Bio suffix '| Moda & Lifestyle' previously polluted tokens and last name
+    m1 = match_user_to_contact(
+        {"username": "camilapereira.pera", "full_name": "Camila Pereira | Moda & Lifestyle"},
+        contacts,
+    )
+    assert m1 == "C-201"
+
+    # Compound @username with single-word display name
+    m2 = match_user_to_contact(
+        {"username": "arq.fernandaoliveira", "full_name": "Fernanda"},
+        contacts,
+    )
+    assert m2 == "C-202"
 
 
 def test_run_sync_batches_and_updates_review(tmp_path):
@@ -167,7 +192,6 @@ def test_run_sync_batches_and_updates_review(tmp_path):
     assert result["candidates_matched"] == 2
     assert result["unlink"] == "completed"
 
-    # Check that client was called in 2 batches of 2
     assert client.calls == [
         ("login", "tester"),
         ("link", 2),
@@ -175,7 +199,6 @@ def test_run_sync_batches_and_updates_review(tmp_path):
         ("unlink",),
     ]
 
-    # Check updated review sheet
     with review_path.open("r", encoding="utf-8") as f:
         updated = list(csv.DictReader(f))
 
@@ -213,7 +236,6 @@ def test_run_sync_keep_linked(tmp_path):
 
     assert result["unlink"] == "not_requested"
     assert result["keep_linked"] is True
-    # Verify unlink was NOT called
     assert ("unlink",) not in client.calls
 
 
@@ -223,21 +245,18 @@ def test_match_user_to_contact_accents_and_particles():
         {"contact_id": "C-102", "full_name": "Antônio Carlos dos Santos", "email": "toninho@empresa.com"},
     ]
 
-    # Matches despite accents and connective 'de'
     res1 = match_user_to_contact(
         {"username": "jessica_sz", "full_name": "Jessica Souza"},
         contacts,
     )
     assert res1 == "C-101"
 
-    # Matches via email prefix when display name differs
     res2 = match_user_to_contact(
         {"username": "jessica.souza", "full_name": "J S"},
         contacts,
     )
     assert res2 == "C-101"
 
-    # Matches accent normalization in extra_display_name
     res3 = match_user_to_contact(
         {"username": "antonio_cs", "extra_display_name": "Antonio Carlos dos Santos"},
         contacts,
