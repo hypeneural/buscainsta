@@ -95,7 +95,8 @@ async function refreshOverview() {
   let message = "Acervo local · sem consulta automática ao Instagram";
   if (stats.last_run) {
     const run = stats.last_run;
-    message += " · Última importação: " + formatDate(run.finished_at);
+    const sourceName = run.provider === "meta_business_discovery" ? "consulta oficial Meta" : "importação local";
+    message += " · Última " + sourceName + ": " + formatDate(run.finished_at);
     message += run.status === "completed" ? " · concluída" : " · houve falha";
   } else {
     message += " · nenhum manifesto importado";
@@ -132,6 +133,7 @@ function renderProfiles() {
     card.append(top);
     if (profile.profile_name) card.append(el("small", "", profile.profile_name));
     card.append(el("small", "", profile.post_count + " publicações · " + profile.archived_count + " com arquivo"));
+    if (profile.updated_at) card.append(el("small", "", "Última consulta: " + formatDate(profile.updated_at)));
     const actions = el("div", "actions");
     actions.append(button("Ver publicações", () => {
       $("profile-filter").value = profile.username;
@@ -351,6 +353,10 @@ async function initialize() {
   for (const id of ["profile-filter", "kind", "archived", "from", "to", "sort"])
     $(id).addEventListener("change", scheduleFilter);
   $("search").addEventListener("input", scheduleFilter);
+  $("reload-acervo").addEventListener("click", async () => {
+    await refreshOverview().catch(() => setText("health", "Não foi possível recarregar o acervo local."));
+    await loadPosts(true);
+  });
   $("clear-filters").addEventListener("click", () => {
     for (const id of ["profile-filter", "kind", "search", "from", "to"]) $(id).value = "";
     $("archived").value = "all"; $("sort").value = "recent"; loadPosts(true);
