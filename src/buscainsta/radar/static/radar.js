@@ -362,6 +362,20 @@ async function initialize() {
   $("viewer").addEventListener("close", () => {
     $("viewer-media").replaceChildren(); viewerSlides = []; viewerPost = null;
   });
+  $("batch-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const values = $("batch-input").value.split(/\\r?\\n/).map((x) => x.trim()).filter(Boolean);
+    if (!values.length) return setText("form-status", "Informe ao menos um perfil.");
+    const submit = $("batch-form").querySelector("[type=submit]");
+    submit.disabled = true;
+    try {
+      const result = await postJSON("/api/competitors/bulk", { usernames: values });
+      $("batch-input").value = "";
+      await refreshOverview();
+      setText("form-status", result.saved + " perfis registrados sem duplicar cadastros.");
+    } catch (error) { setText("form-status", error.message); }
+    finally { submit.disabled = false; }
+  });
   $("add-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const submit = $("add-form").querySelector("[type=submit]");
