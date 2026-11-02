@@ -44,3 +44,10 @@ O botão requer confirmação manual do perfil, permissão Direct e consulta rec
 
 ## Aceite
 CI novo 4/4; Windows local; painel com tabela/foto, busca e paginação; followers nos dois sentidos por conta; confirmação e Direct permission; teste de envio com FakeClient e timestamp; checagem de pastas privadas e ausência de dados pessoais no repo.
+## Atalho PowerShell
+
+O script `scripts/start-dashboard-windows.ps1` lê o venv já instalado e inicia a tabela. Exemplo sem rede:
+
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dashboard-windows.ps1 -Db "C:\BuscaInstaPrivado\buscainsta.db" -Contacts "C:\BuscaInstaPrivado\contatos.csv" -Account "conta_teste"
+
+Para consulta individual adicionar `-EnableInstagram` e informar `-Account` com o **username efetivamente autenticado**, sem @. Para Direct, adicionar `-EnableDirect -MessageFile "C:\BuscaInstaPrivado\mensagem-direct.txt"` e obter autorização individual antes do clique. O adaptador bloqueia quando o usuário autenticado não corresponde a `-Account`.

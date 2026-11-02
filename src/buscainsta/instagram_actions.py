@@ -144,6 +144,10 @@ class InstagramActions:
             cls = self.client_factory or importlib.import_module("instagrapi").Client
             client = cls()
             client.login(login, secret)
+            actual = str(getattr(client, "username", "") or "").lstrip("@").lower()
+            expected = self.account_label.lstrip("@").lower()
+            if actual and actual != expected:
+                raise PublicSafeError("Authenticated Instagram account differs from --account.")
             self._client = client
             return client
         except Exception as exc:
