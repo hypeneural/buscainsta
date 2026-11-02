@@ -152,6 +152,8 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/api/competitors":
                 result = query.add_profile(self.server.root,
                                            str(data["username"]), str(data.get("name", "")))
+            elif self.path == "/api/competitors/bulk":
+                result = query.add_many_profiles(self.server.root, data["usernames"])
             elif self.path == "/api/competitors/status":
                 result = query.set_profile(self.server.root, str(data["username"]), data["enabled"])
             else:
