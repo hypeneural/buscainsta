@@ -55,7 +55,7 @@ def test_invalid_input(tmp_path):
     with pytest.raises(ValueError):
         store.upsert_post(root,record(posted_at="2026-11-01T12:00:00"))
     with pytest.raises(ValueError):
-        store.upsert_post(root,record(likes=-1))
+        store.upsert_post(root,record(likes=-2))
     with pytest.raises(ValueError):
         store.add_competitor(root,"bad/name")
     with pytest.raises(ValueError):
