@@ -12,6 +12,8 @@ let hasMore = false;
 let loading = false;
 let requestGeneration = 0;
 let filterTimer;
+let lastRefreshState = "";
+let refreshEnabled = false;
 let viewerSlides = [];
 let viewerPost = null;
 let currentSlide = 0;
@@ -92,7 +94,7 @@ async function refreshOverview() {
   setText("kpi-posts", stats.posts);
   setText("kpi-archived", stats.archived_posts);
   setText("kpi-size", size(stats.bytes_stored));
-  let message = "Acervo local · sem consulta automática ao Instagram";
+  let message = "Acervo local · últimos dados conhecidos";
   if (stats.last_run) {
     const run = stats.last_run;
     const sourceName = run.provider === "meta_business_discovery" ? "consulta oficial Meta" : "importação local";
@@ -193,6 +195,8 @@ function currentFilters() {
     sort: view === "timeline" ? "recent" : $("sort").value,
     archived: $("archived").value,
   });
+  if ($("min-likes").value) params.set("min_likes", $("min-likes").value);
+  if ($("has-comments").value === "true") params.set("has_comments", "true");
   for (const [control, key] of [
     ["profile-filter", "username"], ["kind", "kind"], ["search", "search"],
     ["from", "from"], ["to", "to"]]) {
@@ -263,16 +267,28 @@ function makeTile(post) {
   meta.append(el("strong", "", "@" + post.username), el("small", "", formatDate(post.posted_at)));
   content.append(meta);
   if (post.caption) content.append(el("div", "caption", post.caption));
-  const likes = post.likes == null ? "—" : Number(post.likes).toLocaleString("pt-BR");
-  const comments = post.comments == null ? "—" : Number(post.comments).toLocaleString("pt-BR");
+  const count = (value) => value == null ? "—" : Number(value).toLocaleString("pt-BR");
   const metrics = el("div", "metrics");
-  metrics.append(el("span", "", "♥ " + likes), el("span", "", "Comentários " + comments),
-    el("span", "", post.locally_archived ? "✓ Salvo localmente" : "Não arquivado"));
+  metrics.append(el("span", "", "♥ " + count(post.likes)),
+                 el("span", "", "Comentários " + count(post.comments)),
+                 el("span", "", "Compartilhamentos " + count(post.shares)));
+  if (post.plays != null || post.views != null)
+    metrics.append(el("span", "", "Reproduções " + count(post.plays ?? post.views)));
   content.append(metrics);
+  content.append(el("div", "metric-source", 
+    (post.locally_archived ? "✓ Arquivo local" : "◌ Somente metadados") +
+    " · " + (post.media_product_type === "REELS" ? "Reel" : kindLabel(post.kind)) +
+    " · Dados atualizados: " + formatDate(post.metadata_checked_at)));
+  if (post.comment_previews?.length) {
+    const preview = el("div", "comment-preview");
+    preview.append(el("strong", "", "Comentários incluídos na importação"));
+    for (const item of post.comment_previews.slice(0, 2))
+      preview.append(el("p", "", "@" + item.username + ": " + item.comment_text.slice(0, 160)));
+    content.append(preview);
+  }
   const actions = el("div", "tile-actions");
   const hasLocal = post.assets.some((x) => x.local_url);
-  const open = button("Visualizar mídias", () => openViewer(post));
-  open.disabled = !hasLocal;
+  const open = button(hasLocal ? "Abrir mídias e detalhes" : "Ver detalhes", () => openViewer(post));
   actions.append(open);
   if (post.permalink && /^https:\/\/(?:www\.)?instagram\.com\//.test(post.permalink)) {
     const link = el("a", "", "Ver no Instagram");
@@ -318,6 +334,23 @@ function openViewer(post) {
   currentSlide = 0;
   setText("viewer-title", "@" + post.username + " · " + kindLabel(post.kind));
   setText("viewer-caption", post.caption || "Sem legenda registrada");
+  setText("viewer-metadata", "Fonte: " + post.source +
+    " · Última consulta: " + formatDate(post.metadata_checked_at) +
+    " · Curtidas " + (post.likes ?? "indisponível") +
+    " · Comentários " + (post.comments ?? "indisponível") +
+    " · Compartilhamentos " + (post.shares ?? "indisponível") +
+    " · Reproduções " + (post.plays ?? post.views ?? "indisponível"));
+  const commentsHost = $("viewer-comments");
+  commentsHost.replaceChildren();
+  if (!post.comment_previews?.length) {
+    commentsHost.append(el("p", "muted", "Nenhuma prévia de comentário disponível nesta fonte."));
+  } else for (const item of post.comment_previews) {
+    const entry = el("article");
+    entry.append(el("strong", "", "@" + item.username),
+                 el("p", "", item.comment_text));
+    if (item.likes != null) entry.append(el("small", "", item.likes + " curtidas"));
+    commentsHost.append(entry);
+  }
   renderSlide();
   $("viewer").showModal();
 }
@@ -347,21 +380,59 @@ function scheduleFilter() {
   clearTimeout(filterTimer);
   filterTimer = setTimeout(() => { if (view !== "overview") loadPosts(true); }, 260);
 }
+async function updateRefreshStatus() {
+  try {
+    const status = await getJSON("/api/refresh-status");
+    let label = "Atualização oficial desabilitada · somente acervo local";
+    if (status.enabled)
+      label = status.running ? "Consultando Meta em segundo plano…" :
+        "Meta: " + status.status + (status.last_completed_at ? " · " + formatDate(status.last_completed_at) : "");
+    setText("refresh-state", label);
+    const signature = String(status.last_completed_at || "") + ":" + String(status.status);
+    if (refreshEnabled && lastRefreshState && signature !== lastRefreshState && !status.running) {
+      await refreshOverview();
+      if (view !== "overview") await loadPosts(true);
+    }
+    lastRefreshState = signature;
+  } catch (_error) {
+    setText("refresh-state", "Falha ao consultar o status da atualização");
+  }
+}
 async function initialize() {
   for (const tab of document.querySelectorAll("[data-view]"))
     tab.addEventListener("click", () => switchView(tab.dataset.view));
-  for (const id of ["profile-filter", "kind", "archived", "from", "to", "sort"])
+  for (const id of ["profile-filter", "kind", "archived", "from", "to", "sort", "has-comments"])
     $(id).addEventListener("change", scheduleFilter);
   $("search").addEventListener("input", scheduleFilter);
+  $("min-likes").addEventListener("input", scheduleFilter);
   $("reload-acervo").addEventListener("click", async () => {
     await refreshOverview().catch(() => setText("health", "Não foi possível recarregar o acervo local."));
     await loadPosts(true);
   });
   $("clear-filters").addEventListener("click", () => {
-    for (const id of ["profile-filter", "kind", "search", "from", "to"]) $(id).value = "";
-    $("archived").value = "all"; $("sort").value = "recent"; loadPosts(true);
+    for (const id of ["profile-filter", "kind", "search", "from", "to", "min-likes"]) $(id).value = "";
+    $("archived").value = "all"; $("has-comments").value = "false";
+    $("sort").value = "recent"; loadPosts(true);
   });
   $("more").addEventListener("click", () => loadPosts(false));
+  $("check-cache").addEventListener("click", async () => {
+    setText("cache-health", "Conferindo arquivos locais…");
+    try {
+      const info = await getJSON("/api/cache-health");
+      setText("cache-health", "Arquivos: " + info.available + " disponíveis, " +
+        info.missing + " ausentes, " + info.corrupt + " com tamanho divergente.");
+    } catch (_error) { setText("cache-health", "Falha ao verificar cache local"); }
+  });
+  $("refresh-meta").addEventListener("click", async () => {
+    if (!refreshEnabled) return setText("refresh-state",
+      "Configure a conta autorizada e inicie o Radar com --refresh-meta-on-access.");
+    try {
+      const result = await postJSON("/api/refresh", {});
+      setText("refresh-state", result.started ? "Atualizando em segundo plano…" :
+        "Atualização em andamento ou em intervalo de segurança");
+    } catch (_error) { setText("refresh-state", "Falha ao solicitar atualização"); }
+  });
+  setInterval(() => { if (refreshEnabled) updateRefreshStatus(); }, 12000);
   $("viewer-close").addEventListener("click", () => $("viewer").close());
   $("viewer-prev").addEventListener("click", () => moveSlide(-1));
   $("viewer-next").addEventListener("click", () => moveSlide(1));
@@ -411,7 +482,9 @@ async function initialize() {
   try {
     const config = await getJSON("/api/config");
     csrf = config.csrf;
+    refreshEnabled = Boolean(config.metadata_refresh?.enabled);
     await refreshOverview();
+    await updateRefreshStatus();
   } catch (error) {
     setText("health", "Falha ao carregar banco local: " + error.message);
   }
