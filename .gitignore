@@ -29,3 +29,10 @@ tmp/
 # Editable installs and Python build metadata
 *.egg-info/
 .venv-live/
+
+# Radar media archive and local frontend builds
+radar.db*
+blobs/
+node_modules/
+frontend/radar/dist/
+*.session
