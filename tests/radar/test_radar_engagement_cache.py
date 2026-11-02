@@ -29,7 +29,7 @@ def test_migration_and_nullable_engagement(tmp_path):
     assert row["plays"] == 250
     assert row["shares"] is None
     assert row["media_product_type"] == "REELS"
-    assert row["comment_previews"][0]["text"] if "text" in row["comment_previews"][0] else row["comment_previews"][0]["comment_text"] == "Lindo trabalho!"
+    assert row["comment_previews"][0]["comment_text"] == "Lindo trabalho!"
     store.upsert_post(root, sample(likes=13, comments=None, shares=9, plays=None,
         comment_previews=[{"id": "c1", "username": "fotografia", "text": "Lindo trabalho!",
                            "likes": 4}]))
@@ -112,3 +112,44 @@ def test_opt_in_refresh_single_flight(monkeypatch, tmp_path):
     assert manager.request(force=True)["started"] is False
     assert calls == ["amizphoto"]
     assert RefreshManager(root, enabled=False).request()["enabled"] is False
+
+
+def test_authorized_instagrapi_json_import_idempotent(tmp_path):
+    import json
+    from buscainsta.radar.instagrapi_normalizer import import_authorized_export
+    root = tmp_path / "archive"
+    payload = {"medias": [{
+        "pk": "abc-456", "code": "Example56", "media_type": 2,
+        "product_type": "clips", "taken_at": "2026-11-01T11:00:00+00:00",
+        "caption_text": "Reel do estúdio", "like_count": -1,
+        "comment_count": 6, "video_url": "https://example.org/media.mp4",
+        "thumbnail_url": "https://example.org/cover.jpg",
+        "video_duration": 6.5,
+        "comments_preview": {"comments": [{
+            "pk": "cm1", "text": "Show", "user": {"username": "follower"},
+            "created_at_utc": "2026-11-01T11:10:00+00:00", "like_count": 1
+        }]}
+    }]}
+    path = tmp_path / "export.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    assert import_authorized_export(root, path, "amizphoto")["processed"] == 1
+    assert import_authorized_export(root, path, "amizphoto")["processed"] == 1
+    rows = query.search_posts(root)["items"]
+    assert len(rows) == 1
+    assert rows[0]["media_product_type"] == "REELS"
+    assert rows[0]["likes"] is None
+    assert rows[0]["comment_previews"][0]["comment_text"] == "Show"
+    assert store.stats(root)["blobs"] == 0
+
+
+def test_cache_reimport_repairs_same_size_corruption(tmp_path):
+    root = tmp_path / "archive"
+    store.initialize(root)
+    media = tmp_path / "original.jpg"
+    media.write_bytes(b"\\xff\\xd8\\xff" + b"one" * 20)
+    sha = store.archive_file(root, media)
+    saved = store.get_blob(root, sha)["path"]
+    saved.write_bytes(b"\\xff\\xd8\\xff" + b"two" * 20)
+    assert store.cache_report(root, verify_hashes=True)["corrupt"] == 1
+    store.archive_file(root, media)
+    assert store.cache_report(root, verify_hashes=True)["available"] == 1
