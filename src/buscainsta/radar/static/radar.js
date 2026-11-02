@@ -364,7 +364,7 @@ async function initialize() {
   });
   $("batch-form").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const values = $("batch-input").value.split(/\\r?\\n/).map((x) => x.trim()).filter(Boolean);
+    const values = $("batch-input").value.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
     if (!values.length) return setText("form-status", "Informe ao menos um perfil.");
     const submit = $("batch-form").querySelector("[type=submit]");
     submit.disabled = true;
