@@ -289,7 +289,15 @@ def archive_file(root: Path, original: Path) -> str:
     rel = Path("blobs") / sha[:2] / (sha+ext)
     target = root / rel
     target.parent.mkdir(parents=True,exist_ok=True)
-    if not target.exists():
+    # A stale or damaged blob may have the right name but different bytes.
+    valid_existing = False
+    if target.is_file() and target.stat().st_size == size:
+        existing_digest = hashlib.sha256()
+        with target.open("rb") as current:
+            for block in iter(lambda:current.read(1024*1024),b""):
+                existing_digest.update(block)
+        valid_existing = existing_digest.hexdigest() == sha
+    if not valid_existing:
         fd,tmp = tempfile.mkstemp(prefix=".radar-",dir=target.parent)
         try:
             with os.fdopen(fd,"wb") as out,original.open("rb") as source:
