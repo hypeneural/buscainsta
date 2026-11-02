@@ -16,6 +16,7 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("init")
     sub.add_parser("stats")
+    sub.add_parser("verify-cache")
     add = sub.add_parser("add-competitor")
     add.add_argument("username")
     imp = sub.add_parser("import")
@@ -34,6 +35,8 @@ def main():
             result = {"status": "ready"}
         elif args.command == "stats":
             result = query.overview(args.root)
+        elif args.command == "verify-cache":
+            result = store.cache_report(args.root, verify_hashes=True)
         elif args.command == "add-competitor":
             result = query.add_profile(args.root, args.username)
         elif args.command == "import":
