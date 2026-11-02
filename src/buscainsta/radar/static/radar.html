@@ -22,12 +22,12 @@ small,.muted{color:var(--muted)}.header-note{font-size:12px;max-width:500px}
 form.row,.toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end}
 .field{display:flex;flex-direction:column;gap:5px;min-width:145px;flex:1}
 .field.wide{flex:2;min-width:180px}label{font-size:12px;color:#c5d6e6;font-weight:600}
-input,select{border:1px solid #435570;border-radius:8px;color:#fff;background:#0f1b2b;padding:11px 10px;min-height:43px;width:100%}
-input:focus,select:focus,button:focus-visible{outline:2px solid #75b8f7;outline-offset:2px}
+input,select,textarea{border:1px solid #435570;border-radius:8px;color:#fff;background:#0f1b2b;padding:11px 10px;min-height:43px;width:100%}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid #75b8f7;outline-offset:2px}
 .primary,.secondary{border-radius:9px;padding:11px 16px;min-height:43px;border:1px solid #4f9ddd;background:#276398;color:white}
 .secondary{background:#24374f;border-color:#425b77}.secondary:hover,.primary:hover{filter:brightness(1.12)}
 .status{min-height:18px;font-size:13px;color:#a9d5ff;margin:10px 0 15px}
-.profile-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:9px;margin-top:12px}
+.batch-panel{margin:13px 0;color:#d3e6f8}.batch-panel summary{cursor:pointer;font-size:13px;padding:7px 0}.batch-panel textarea{min-height:100px;resize:vertical}.batch-panel button{margin-top:9px}.profile-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:9px;margin-top:12px}
 .profile{padding:12px;border:1px solid var(--line);border-radius:10px;background:#132033;display:grid;gap:8px}
 .profile .top{display:flex;justify-content:space-between;gap:6px;align-items:center}
 .profile strong{font-size:13px;overflow-wrap:anywhere}.profile small{display:block;font-size:11px}
@@ -87,6 +87,10 @@ dialog::backdrop{background:#02060dda}dialog img,dialog video{max-width:100%;max
 <div class="field"><label for="new-name">Apelido (opcional)</label><input id="new-name" name="name" placeholder="Nome do estúdio" maxlength="180"></div>
 <button class="primary" type="submit">Adicionar perfil</button>
 </form>
+<details class="batch-panel"><summary>Cadastrar vários concorrentes de uma vez</summary>
+<form id="batch-form"><label for="batch-input">Um @ ou link do Instagram por linha (até 50)</label>
+<textarea id="batch-input" rows="4" maxlength="10000" placeholder="@amizphoto\nhttps://www.instagram.com/lizicastagnerafotografias/"></textarea>
+<button class="secondary" type="submit">Adicionar lista</button></form></details>
 <p class="status" id="form-status" role="status"></p>
 <div id="profiles" class="profile-list" aria-label="Concorrentes cadastrados"></div>
 </div>
