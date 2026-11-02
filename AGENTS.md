@@ -32,3 +32,6 @@ Projeto: MVP Windows 11 para **avaliar** se contatos autorizados podem ser assoc
 - Importação em `legacy_import.py` por telefone normalizado; o ID CRM NÃO é único na versão examinada. Não realizar merge por ID do CRM.
 - A nova UI deve manter score VIP, indicadores, filtros, ensaios e situação 2026, além dos novos botões.
 - Sem registros reais ou scripts geradores com JSON embutido no GitHub. Somente fixtures sintéticas.
+
+## Radar (branch de desenvolvimento)
+O módulo `src/buscainsta/radar/` opera isoladamente: banco `radar.db`, arquivos `blobs`, porta 8766. Nunca introduzir dependência do CRM, banco de clientes ou credenciais de `@estudioevydenciaa`. O Radar de arquivo offline não é autorização para scraping de concorrentes: fornecedores/consultas externas exigem documentação e avaliação próprias. Não habilitar download remoto por padrão. Ver docs/RADAR.md.
