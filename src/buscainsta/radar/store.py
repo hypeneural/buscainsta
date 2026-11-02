@@ -1,0 +1,281 @@
+"""SQLite archive for Radar. Files are content-addressed and never fetched implicitly."""
+from __future__ import annotations
+
+import hashlib
+import os
+import re
+import shutil
+import sqlite3
+import tempfile
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+
+USERNAME = re.compile(r"^[a-zA-Z0-9._]{1,30}$")
+SHA256 = re.compile(r"^[a-f0-9]{64}$")
+MAX_ASSET_BYTES = 200 * 1024 * 1024
+
+def now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+def private_root(root: Path) -> Path:
+    path = root.expanduser().resolve()
+    if any((parent / ".git").exists() for parent in (path, *path.parents)):
+        raise ValueError("Radar archive must live outside Git repositories")
+    return path
+
+@contextmanager
+def db_connect(root: Path):
+    root = private_root(root)
+    root.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(root / "radar.db", timeout=20)
+    con.row_factory = sqlite3.Row
+    con.execute("PRAGMA foreign_keys=ON")
+    con.execute("PRAGMA busy_timeout=20000")
+    try:
+        yield con
+        con.commit()
+    except BaseException:
+        con.rollback()
+        raise
+    finally:
+        con.close()
+
+def initialize(root: Path) -> None:
+    with db_connect(root) as con:
+        con.execute("PRAGMA journal_mode=WAL")
+        con.executescript("""
+        CREATE TABLE IF NOT EXISTS competitors(
+          username TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1,
+          profile_name TEXT NOT NULL DEFAULT '', followers INTEGER,
+          updated_at TEXT NOT NULL DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS posts(
+          id INTEGER PRIMARY KEY,
+          canonical_key TEXT NOT NULL UNIQUE,
+          source TEXT NOT NULL,
+          external_id TEXT NOT NULL,
+          username TEXT NOT NULL REFERENCES competitors(username),
+          kind TEXT NOT NULL CHECK(kind IN ('image','video','carousel','story')),
+          caption TEXT NOT NULL DEFAULT '',
+          permalink TEXT NOT NULL DEFAULT '',
+          posted_at TEXT NOT NULL,
+          first_seen_at TEXT NOT NULL,
+          last_seen_at TEXT NOT NULL,
+          expires_at TEXT,
+          likes INTEGER, comments INTEGER, views INTEGER,
+          cover_url TEXT NOT NULL DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS posts_time ON posts(posted_at DESC,id DESC);
+        CREATE INDEX IF NOT EXISTS posts_profile_time ON posts(username,posted_at DESC);
+        CREATE TABLE IF NOT EXISTS blobs(
+          sha256 TEXT PRIMARY KEY, relative_path TEXT NOT NULL UNIQUE,
+          mime TEXT NOT NULL, bytes INTEGER NOT NULL, stored_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS post_assets(
+          post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+          position INTEGER NOT NULL CHECK(position >= 0),
+          kind TEXT NOT NULL CHECK(kind IN ('image','video')),
+          sha256 TEXT REFERENCES blobs(sha256),
+          remote_url TEXT NOT NULL DEFAULT '',
+          poster_url TEXT NOT NULL DEFAULT '',
+          PRIMARY KEY(post_id,position)
+        );
+        CREATE TABLE IF NOT EXISTS metric_snapshots(
+          id INTEGER PRIMARY KEY,
+          post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+          checked_at TEXT NOT NULL,
+          likes INTEGER, comments INTEGER, views INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS metric_post_time ON metric_snapshots(post_id,checked_at DESC);
+        CREATE TABLE IF NOT EXISTS collection_runs(
+          id INTEGER PRIMARY KEY, provider TEXT NOT NULL,
+          started_at TEXT NOT NULL, finished_at TEXT NOT NULL,
+          status TEXT NOT NULL, imported INTEGER NOT NULL DEFAULT 0,
+          error_type TEXT NOT NULL DEFAULT ''
+        );
+        """)
+
+def add_competitor(root: Path, username: str, name: str = "") -> None:
+    username = username.lstrip("@").lower()
+    if not USERNAME.fullmatch(username):
+        raise ValueError("Invalid Instagram username")
+    with db_connect(root) as con:
+        con.execute("""INSERT INTO competitors(username,profile_name) VALUES(?,?)
+            ON CONFLICT(username) DO UPDATE SET profile_name=
+            CASE WHEN excluded.profile_name<>'' THEN excluded.profile_name ELSE competitors.profile_name END""",
+            (username, name[:180]))
+
+def list_competitors(root: Path) -> list[dict]:
+    with db_connect(root) as con:
+        return [dict(x) for x in con.execute("SELECT * FROM competitors ORDER BY username")]
+
+def canonical_key(source: str, external_id: str, permalink: str) -> str:
+    # A permalink with an Instagram shortcode joins duplicate feed/reel imports.
+    match = re.search(r"instagram\.com/(?:p|reel|tv)/([a-zA-Z0-9_-]+)", permalink)
+    return "ig:" + match.group(1) if match else source + ":" + external_id
+
+def upsert_post(root: Path, record: dict) -> int:
+    source = str(record["source"]).strip().lower()
+    external_id = str(record["external_id"]).strip()
+    username = str(record["username"]).lstrip("@").lower()
+    kind = record["kind"]
+    if kind not in ("image","video","carousel","story") or not source or not external_id:
+        raise ValueError("Invalid post identifier or type")
+    if not USERNAME.fullmatch(username) or len(source)>40 or len(external_id)>160:
+        raise ValueError("Invalid post source or username")
+    posted_at = str(record["posted_at"])
+    timestamp = datetime.fromisoformat(posted_at.replace("Z","+00:00"))
+    if timestamp.tzinfo is None:
+        raise ValueError("posted_at must be timezone-aware")
+    posted_at = timestamp.astimezone(timezone.utc).isoformat()
+    permalink = str(record.get("permalink") or "")
+    if permalink and not re.fullmatch(r"https://(www\.)?instagram\.com/[^\s]{1,350}",permalink):
+        raise ValueError("Invalid Instagram permalink")
+    for k in ("likes","comments","views"):
+        val = record.get(k)
+        if val is not None and (type(val) is not int or val<0):
+            raise ValueError("Invalid metric " + k)
+    key = canonical_key(source,external_id,permalink)
+    stamp = now()
+    add_competitor(root,username)
+    with db_connect(root) as con:
+        con.execute("""INSERT INTO posts(canonical_key,source,external_id,username,kind,caption,
+              permalink,posted_at,first_seen_at,last_seen_at,expires_at,likes,comments,views,cover_url)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(canonical_key) DO UPDATE SET
+              last_seen_at=excluded.last_seen_at,
+              caption=CASE WHEN excluded.caption<>'' THEN excluded.caption ELSE posts.caption END,
+              permalink=CASE WHEN excluded.permalink<>'' THEN excluded.permalink ELSE posts.permalink END,
+              cover_url=CASE WHEN excluded.cover_url<>'' THEN excluded.cover_url ELSE posts.cover_url END,
+              expires_at=COALESCE(excluded.expires_at,posts.expires_at),
+              likes=COALESCE(excluded.likes,posts.likes),
+              comments=COALESCE(excluded.comments,posts.comments),
+              views=COALESCE(excluded.views,posts.views)""",
+            (key,source,external_id,username,kind,str(record.get("caption") or "")[:12000],
+             permalink,posted_at,stamp,stamp,record.get("expires_at"),
+             record.get("likes"),record.get("comments"),record.get("views"),
+             str(record.get("cover_url") or "")[:1600]))
+        post_id = con.execute("SELECT id FROM posts WHERE canonical_key=?",(key,)).fetchone()["id"]
+        last = con.execute("""SELECT likes,comments,views FROM metric_snapshots
+          WHERE post_id=? ORDER BY id DESC LIMIT 1""",(post_id,)).fetchone()
+        metrics = tuple(record.get(k) for k in ("likes","comments","views"))
+        if any(v is not None for v in metrics) and (last is None or tuple(last)!=metrics):
+            con.execute("""INSERT INTO metric_snapshots(post_id,checked_at,likes,comments,views)
+                VALUES(?,?,?,?,?)""",(post_id,stamp,*metrics))
+        return post_id
+
+def sniff(path: Path) -> tuple[str,str]:
+    with path.open("rb") as f:
+        header = f.read(32)
+    if header.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg",".jpg"
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png",".png"
+    if header.startswith(b"RIFF") and header[8:12]==b"WEBP":
+        return "image/webp",".webp"
+    if len(header)>=12 and header[4:8]==b"ftyp":
+        return "video/mp4",".mp4"
+    raise ValueError("Unsupported file signature: JPEG, PNG, WebP, MP4 only")
+
+def archive_file(root: Path, original: Path) -> str:
+    root = private_root(root)
+    original = original.resolve(strict=True)
+    if not original.is_file() or original.stat().st_size > MAX_ASSET_BYTES:
+        raise ValueError("Missing or oversized media")
+    mime, ext = sniff(original)
+    digest = hashlib.sha256()
+    size = 0
+    with original.open("rb") as f:
+        for chunk in iter(lambda:f.read(1024*1024),b""):
+            size += len(chunk)
+            if size > MAX_ASSET_BYTES:
+                raise ValueError("Media over size limit")
+            digest.update(chunk)
+    sha = digest.hexdigest()
+    rel = Path("blobs") / sha[:2] / (sha+ext)
+    target = root / rel
+    target.parent.mkdir(parents=True,exist_ok=True)
+    if not target.exists():
+        fd,tmp = tempfile.mkstemp(prefix=".radar-",dir=target.parent)
+        try:
+            with os.fdopen(fd,"wb") as out,original.open("rb") as source:
+                shutil.copyfileobj(source,out,1024*1024)
+                out.flush()
+                os.fsync(out.fileno())
+            if hashlib.sha256(Path(tmp).read_bytes()).hexdigest()!=sha:
+                raise OSError("Media changed during archive")
+            os.replace(tmp,target)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+    with db_connect(root) as con:
+        con.execute("""INSERT OR IGNORE INTO blobs(sha256,relative_path,mime,bytes,stored_at)
+            VALUES(?,?,?,?,?)""",(sha,str(rel).replace("\\","/"),mime,size,now()))
+    return sha
+
+def put_asset(root: Path, post_id:int, position:int, kind:str,
+              local_file:Path|None=None, remote_url:str="",poster_url:str="") -> str|None:
+    if type(position) is not int or position<0 or position>100 or kind not in ("image","video"):
+        raise ValueError("Invalid carousel asset")
+    sha = archive_file(root,local_file) if local_file is not None else None
+    if remote_url and (not remote_url.startswith("https://") or len(remote_url)>2000):
+        raise ValueError("Remote URL must be HTTPS")
+    with db_connect(root) as con:
+        con.execute("""INSERT INTO post_assets(post_id,position,kind,sha256,remote_url,poster_url)
+              VALUES(?,?,?,?,?,?)
+              ON CONFLICT(post_id,position) DO UPDATE SET
+                kind=excluded.kind,
+                sha256=COALESCE(excluded.sha256,post_assets.sha256),
+                remote_url=CASE WHEN excluded.remote_url<>'' THEN excluded.remote_url ELSE post_assets.remote_url END,
+                poster_url=CASE WHEN excluded.poster_url<>'' THEN excluded.poster_url ELSE post_assets.poster_url END""",
+              (post_id,position,kind,sha,remote_url,poster_url))
+    return sha
+
+def get_blob(root: Path, sha: str):
+    if not SHA256.fullmatch(sha):
+        return None
+    with db_connect(root) as con:
+        row=con.execute("SELECT * FROM blobs WHERE sha256=?",(sha,)).fetchone()
+    if row is None:
+        return None
+    path=(private_root(root)/row["relative_path"]).resolve()
+    if not path.is_relative_to(private_root(root)/"blobs") or not path.is_file():
+        return None
+    return {"path":path,"mime":row["mime"],"bytes":row["bytes"]}
+
+def list_posts(root:Path, username:str="",kind:str="",limit:int=40,offset:int=0)->list[dict]:
+    if not (1<=limit<=100 and 0<=offset<=1000000):
+        raise ValueError("Invalid pagination")
+    if kind and kind not in ("image","video","carousel","story"):
+        raise ValueError("Invalid media filter")
+    where=[]; params=[]
+    if username:
+        if not USERNAME.fullmatch(username):
+            raise ValueError("Invalid username")
+        where.append("username=?");params.append(username.lower())
+    if kind:
+        where.append("kind=?");params.append(kind)
+    clause=" WHERE "+" AND ".join(where) if where else ""
+    with db_connect(root) as con:
+        rows=[dict(x) for x in con.execute("SELECT * FROM posts"+clause+" ORDER BY posted_at DESC,id DESC LIMIT ? OFFSET ?",(*params,limit,offset))]
+        for post in rows:
+            assets=[dict(x) for x in con.execute("SELECT * FROM post_assets WHERE post_id=? ORDER BY position",(post["id"],))]
+            for asset in assets:
+                asset["local_url"]="/api/blob/"+asset["sha256"] if asset["sha256"] else None
+            post["assets"]=assets
+        return rows
+
+def stats(root:Path)->dict:
+    with db_connect(root) as con:
+        values = {}
+        for tab in ("competitors","posts","post_assets","blobs","metric_snapshots"):
+            values[tab]=con.execute("SELECT COUNT(*) FROM "+tab).fetchone()[0]
+        values["bytes_stored"]=con.execute("SELECT COALESCE(SUM(bytes),0) FROM blobs").fetchone()[0]
+        values["last_run"]=dict(x) if (x:=con.execute("SELECT * FROM collection_runs ORDER BY id DESC LIMIT 1").fetchone()) else None
+        return values
+
+def record_run(root:Path, provider:str, start:str, status:str, imported:int=0,error_type:str=""):
+    with db_connect(root) as con:
+        con.execute("""INSERT INTO collection_runs(provider,started_at,finished_at,status,imported,error_type)
+              VALUES(?,?,?,?,?,?)""",(provider,start,now(),status,imported,error_type[:100]))
