@@ -25,6 +25,13 @@ def test_profile_onboarding_and_disable(tmp_path):
     assert a["username"] == "amizphoto"
     query.add_profile(root, "@AMIZPHOTO")
     assert len(query.profiles(root)) == 1
+    batch = query.add_many_profiles(root, [
+        "@amizphoto", "https://www.instagram.com/brunacarlafoto/", "@brunacarlafoto"])
+    assert batch["saved"] == 2
+    assert len(query.profiles(root)) == 2
+    with pytest.raises(ValueError):
+        query.add_many_profiles(root, ["@valid", "https://invalid.example/invalid"])
+    assert len(query.profiles(root)) == 2
     assert query.profiles(root)[0]["profile_name"] == "Foto Amiz"
     assert query.set_profile(root, "amizphoto", False)["enabled"] is False
     assert query.profiles(root)[0]["enabled"] == 0
