@@ -205,7 +205,7 @@ def upsert_post(root: Path, record: dict) -> int:
               views=COALESCE(excluded.views,posts.views)""",
             (key,source,external_id,username,kind,str(record.get("caption") or "")[:12000],
              permalink,posted_at,stamp,stamp,record.get("expires_at"),
-             record.get("likes"),record.get("comments"),record.get("views"),
+             metrics["likes"],metrics["comments"],metrics["views"],
              str(record.get("cover_url") or "")[:1600]))
         post_id = con.execute("SELECT id FROM posts WHERE canonical_key=?",(key,)).fetchone()["id"]
         con.execute("""INSERT OR IGNORE INTO post_identities(source,external_id,post_id)
