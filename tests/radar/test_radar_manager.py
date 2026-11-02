@@ -34,7 +34,7 @@ def test_profile_onboarding_and_disable(tmp_path):
     assert len(query.profiles(root)) == 2
     assert query.profiles(root)[0]["profile_name"] == "Foto Amiz"
     assert query.set_profile(root, "amizphoto", False)["enabled"] is False
-    assert query.profiles(root)[0]["enabled"] == 0
+    assert next(p for p in query.profiles(root) if p["username"] == "amizphoto")["enabled"] == 0
     with pytest.raises(ValueError):
         query.set_profile(root, "not_registered", True)
     with pytest.raises(ValueError):
