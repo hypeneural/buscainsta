@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>BuscaInsta | Radar de Concorrentes</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#f1f5f9;background:#0e1522;--panel:#182334;--line:#2c3c52;--muted:#a9bacb;--accent:#75b8f7}
+*{box-sizing:border-box}body{margin:0;min-width:310px}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.5;cursor:wait}
+header{padding:18px max(20px,calc((100vw - 1500px)/2));border-bottom:1px solid var(--line);background:#121c2b;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}
+header h1{font-size:21px;margin:0;line-height:1.3}header .sub{color:var(--muted);font-size:12px}
+main{max-width:1550px;margin:0 auto;padding:24px 22px 64px}h2{font-size:18px;margin:0 0 14px}h3{font-size:15px;margin:0 0 8px}
+small,.muted{color:var(--muted)}.header-note{font-size:12px;max-width:500px}
+.pill{border:1px solid #3e637b;border-radius:100px;padding:5px 10px;color:#a9e9ff;background:#1c3344;font-size:12px}
+.nav{display:flex;gap:7px;margin-bottom:20px;flex-wrap:wrap}
+.nav button{border:1px solid var(--line);background:var(--panel);color:#d3e0ec;border-radius:10px;padding:11px 17px}
+.nav button[aria-selected=true]{border-color:#65b6ff;background:#214368;color:white}
+.cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:22px}
+.kpi,.panel{border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+.kpi{padding:16px}.kpi strong{font-size:29px;display:block;letter-spacing:-1px}.kpi span{font-size:12px;color:var(--muted)}
+.panel{padding:17px;margin-bottom:18px}.heading-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#health{padding:9px 12px;border-radius:8px;background:#24354b;color:#d3e8ff;font-size:12px;margin-bottom:15px}
+form.row,.toolbar{display:flex;gap:9px;flex-wrap:wrap;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px;min-width:145px;flex:1}
+.field.wide{flex:2;min-width:180px}label{font-size:12px;color:#c5d6e6;font-weight:600}
+input,select,textarea{border:1px solid #435570;border-radius:8px;color:#fff;background:#0f1b2b;padding:11px 10px;min-height:43px;width:100%}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid #75b8f7;outline-offset:2px}
+.primary,.secondary{border-radius:9px;padding:11px 16px;min-height:43px;border:1px solid #4f9ddd;background:#276398;color:white}
+.secondary{background:#24374f;border-color:#425b77}.secondary:hover,.primary:hover{filter:brightness(1.12)}
+.status{min-height:18px;font-size:13px;color:#a9d5ff;margin:10px 0 15px}
+.batch-panel{margin:13px 0;color:#d3e6f8}.batch-panel summary{cursor:pointer;font-size:13px;padding:7px 0}.batch-panel textarea{min-height:100px;resize:vertical}.batch-panel button{margin-top:9px}.profile-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:9px;margin-top:12px}
+.profile{padding:12px;border:1px solid var(--line);border-radius:10px;background:#132033;display:grid;gap:8px}
+.profile .top{display:flex;justify-content:space-between;gap:6px;align-items:center}
+.profile strong{font-size:13px;overflow-wrap:anywhere}.profile small{display:block;font-size:11px}
+.profile .actions{display:flex;gap:7px}.profile button{font-size:12px;padding:7px 9px;min-height:32px}
+.profile.inactive{opacity:.68}
+#filters-panel{margin-bottom:17px}
+.results-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin:18px 0 15px}
+.mural{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));grid-auto-rows:8px;gap:12px;align-items:start}
+.tile{grid-row-end:span 28;min-width:0}.tile-inner{border:1px solid #30445d;background:#192638;border-radius:13px;overflow:hidden;box-shadow:0 6px 18px #080e1760}
+.tile-inner:hover{border-color:#5986b3}
+.preview{display:flex;align-items:center;justify-content:center;min-height:145px;background:#101c2c;position:relative;overflow:hidden}
+.preview img{display:block;width:100%;height:auto;max-height:420px;object-fit:contain}.preview .placeholder{color:#9bb5d1;padding:40px 12px;text-align:center;font-size:14px}
+.kind-label{position:absolute;right:10px;top:10px;border-radius:6px;background:#090f18dc;color:#fff;font-size:11px;padding:5px 7px}
+.tile-content{padding:13px;display:grid;gap:8px}.tile .meta{display:flex;align-items:center;justify-content:space-between;gap:9px;font-size:12px}
+.tile .meta strong{overflow-wrap:anywhere}.tile .caption{font-size:13px;line-height:1.4;color:#d6e0ec;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.metrics{font-size:12px;color:#aec2d6;display:flex;gap:10px;flex-wrap:wrap}
+.tile-actions{display:flex;gap:8px;flex-wrap:wrap}.tile-actions button,.tile-actions a{border:1px solid #375677;border-radius:8px;padding:8px 11px;background:#1c3854;color:#ddf1ff;font-size:12px;text-decoration:none}
+.tile-actions a{background:transparent}.tile-actions button:disabled{opacity:.6}
+.timeline{display:grid;gap:25px}.day{border-left:2px solid #416c97;padding-left:18px}.day h3{color:#badaff;margin:0 0 12px;font-size:15px}
+.timeline-entry{display:grid;grid-template-columns:64px minmax(0,1fr);gap:13px;margin-bottom:10px}
+.time{font-weight:700;color:#b5d8fa;font-size:13px;padding-top:16px}
+.timeline .tile{grid-row-end:auto!important}.timeline .tile-inner{display:grid;grid-template-columns:minmax(110px,210px) 1fr}.timeline .preview{min-height:110px}.timeline .preview img{max-height:185px}
+.timeline .tile-content{align-content:center}
+.empty{border:1px dashed #42617e;border-radius:12px;padding:35px;text-align:center;color:var(--muted)}
+.loadmore{text-align:center;margin:24px auto}.loadmore button{min-width:190px}
+.overview-profiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:10px}
+.summary-profile{border:1px solid var(--line);padding:12px;border-radius:10px}.summary-profile strong{display:block;font-size:13px}.summary-profile span{display:block;font-size:12px;color:var(--muted);margin-top:6px}
+a{color:#96d6ff}dialog{background:#111c2c;color:white;border:1px solid #436583;border-radius:14px;width:min(1100px,94vw);max-height:94vh;padding:18px}
+dialog::backdrop{background:#02060dda}dialog img,dialog video{max-width:100%;max-height:68vh;object-fit:contain}
+.viewer-media{display:flex;min-height:160px;justify-content:center;align-items:center;background:#080f1b;border-radius:10px;padding:8px}
+.viewer-controls{display:flex;gap:9px;justify-content:space-between;align-items:center;margin:12px 0}
+.viewer-caption{font-size:13px;white-space:pre-wrap;max-height:90px;overflow:auto}
+.comment-preview{border-top:1px solid var(--line);padding-top:8px;font-size:12px;color:#bfd3e7}
+.comment-preview p{margin:6px 0;line-height:1.45;overflow-wrap:anywhere}
+.comment-list{max-height:200px;overflow:auto;border-top:1px solid #30445d;padding-top:9px}
+.comment-list article{padding:8px 0;border-bottom:1px solid #263a51}
+.metric-source{font-size:11px;color:#9db5ce;line-height:1.4}
+.status-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+
+[hidden]{display:none!important}
+@media(max-width:850px){.cards{grid-template-columns:repeat(2,1fr)}.timeline .tile-inner{grid-template-columns:1fr}.timeline-entry{grid-template-columns:48px minmax(0,1fr)}}
+@media(max-width:520px){main{padding:18px 12px}.mural{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.tile-content{padding:9px}.tile .meta{display:block}.tile-actions{gap:5px}.tile-actions button,.tile-actions a{padding:7px}.cards{gap:8px}.kpi{padding:12px}.kpi strong{font-size:23px}}
+</style></head>
+<body>
+<header><div><h1>BuscaInsta <span class="muted">/ Radar de Concorrentes</span></h1><div class="sub">Arquivo e análise local de publicações · Sem conexão automática com Instagram</div></div><span class="pill">Acervo local · Porta 8766</span></header>
+<main>
+<nav class="nav" aria-label="Visualização">
+<button type="button" data-view="overview" aria-selected="true">Visão geral</button>
+<button type="button" data-view="mural" aria-selected="false">Mural de mídias</button>
+<button type="button" data-view="timeline" aria-selected="false">Timeline cronológica</button>
+</nav>
+<div id="health" role="status">Consultando o banco de dados local…</div>
+<div class="status-actions"><button type="button" class="secondary" id="refresh-meta">Atualizar métricas pela Meta (se habilitado)</button>
+<button type="button" class="secondary" id="check-cache">Verificar arquivos locais</button>
+<small id="refresh-state" role="status">Exibindo últimos dados salvos</small></div><p id="cache-health" class="muted"></p>
+<section class="cards" aria-label="Resumo">
+<div class="kpi"><strong id="kpi-profiles">—</strong><span>Concorrentes ativos</span></div>
+<div class="kpi"><strong id="kpi-posts">—</strong><span>Publicações catalogadas</span></div>
+<div class="kpi"><strong id="kpi-archived">—</strong><span>Publicações com arquivo local</span></div>
+<div class="kpi"><strong id="kpi-size">—</strong><span>Espaço ocupado pelo acervo</span></div>
+</section>
+<section id="panel-overview">
+<div class="panel">
+<div class="heading-row"><h2>Gerenciar concorrentes</h2><small>Adicionar por @usuário ou URL do perfil</small></div>
+<form id="add-form" class="row" autocomplete="off">
+<div class="field wide"><label for="new-profile">Instagram do concorrente</label><input id="new-profile" name="username" placeholder="@fotografia ou https://www.instagram.com/..." required maxlength="240"></div>
+<div class="field"><label for="new-name">Apelido (opcional)</label><input id="new-name" name="name" placeholder="Nome do estúdio" maxlength="180"></div>
+<button class="primary" type="submit">Adicionar perfil</button>
+</form>
+<details class="batch-panel"><summary>Cadastrar vários concorrentes de uma vez</summary>
+<form id="batch-form"><label for="batch-input">Um @ ou link do Instagram por linha (até 50)</label>
+<textarea id="batch-input" rows="4" maxlength="10000" placeholder="@amizphoto\nhttps://www.instagram.com/lizicastagnerafotografias/"></textarea>
+<button class="secondary" type="submit">Adicionar lista</button></form></details>
+<button type="button" class="secondary" id="starter-profiles">Adicionar os 8 concorrentes iniciais</button>
+<p class="status" id="form-status" role="status"></p>
+<div id="profiles" class="profile-list" aria-label="Concorrentes cadastrados"></div>
+</div>
+<div class="panel"><h2>Atividade dos perfis</h2><p class="muted">Últimas publicações catalogadas no acervo. Perfis sem coleta aparecem com zero conteúdo.</p><div id="overview-profiles" class="overview-profiles"></div></div>
+</section>
+<section id="filters-panel" class="panel" hidden>
+<div class="heading-row"><h2>Filtros do acervo</h2><div class="toolbar"><button type="button" class="secondary" id="reload-acervo">Recarregar acervo local</button><button type="button" class="secondary" id="clear-filters">Limpar filtros</button></div></div>
+<div class="toolbar">
+<div class="field wide"><label for="search">Buscar nas legendas</label><input id="search" type="search" maxlength="120" placeholder="Natal, promoção, bastidores..."></div>
+<div class="field"><label for="profile-filter">Concorrente</label><select id="profile-filter"><option value="">Todos os perfis</option></select></div>
+<div class="field"><label for="kind">Formato</label><select id="kind"><option value="">Todos os formatos</option><option value="image">Fotos</option><option value="video">Vídeos / Reels</option><option value="carousel">Carrosséis</option><option value="story">Stories</option></select></div>
+<div class="field"><label for="archived">Arquivo local</label><select id="archived"><option value="all">Todos</option><option value="local">Somente salvos</option><option value="missing">Não arquivados</option></select></div>
+<div class="field"><label for="from">Data inicial</label><input id="from" type="date"></div>
+<div class="field"><label for="to">Data final</label><input id="to" type="date"></div>
+<div class="field"><label for="min-likes">Curtidas mínimas</label><input id="min-likes" type="number" min="0" max="1000000000" placeholder="0"></div>
+<div class="field"><label for="has-comments">Comentários</label><select id="has-comments"><option value="false">Todos</option><option value="true">Com comentários</option></select></div>
+<div class="field"><label for="sort">Ordenar</label><select id="sort"><option value="recent">Mais recentes</option><option value="oldest">Mais antigas</option><option value="likes">Mais curtidas</option><option value="comments">Mais comentários</option><option value="shares">Mais compartilhamentos disponíveis</option><option value="plays">Mais reproduções disponíveis</option><option value="detected">Detecção recente</option></select></div>
+</div>
+</section>
+<section id="panel-mural" hidden><div class="results-head"><h2>Mural de publicações</h2><small id="count-mural"></small></div><div id="mural" class="mural"></div></section>
+<section id="panel-timeline" hidden><div class="results-head"><h2>Timeline · mais recentes primeiro</h2><small id="count-timeline"></small></div><div id="timeline" class="timeline"></div></section>
+<div id="results-status" class="status" role="status"></div>
+<div class="loadmore" id="more-wrap" hidden><button type="button" class="secondary" id="more">Carregar mais publicações</button></div>
+</main>
+<dialog id="viewer" aria-label="Visualizador de mídias">
+<div class="heading-row"><h2 id="viewer-title">Visualizador</h2><button type="button" class="secondary" id="viewer-close">Fechar ✕</button></div>
+<div class="viewer-media" id="viewer-media"></div>
+<div class="viewer-controls"><button class="secondary" id="viewer-prev" type="button">Anterior</button><span id="viewer-counter"></span><button class="secondary" id="viewer-next" type="button">Próxima</button></div>
+<p id="viewer-caption" class="viewer-caption"></p>
+<div id="viewer-metadata" class="metric-source"></div>
+<h3>Comentários disponíveis no acervo</h3><div id="viewer-comments" class="comment-list"></div>
+</dialog>
+<script src="/radar.js" defer></script></body></html>

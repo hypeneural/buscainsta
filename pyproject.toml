@@ -7,7 +7,7 @@ name = "buscainsta"
 version = "0.2.0"
 description = "Local-first consented Instagram profile review MVP"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["tzdata>=2025.2,<2028; sys_platform == 'win32'"]
 
 [project.optional-dependencies]
 test = ["pytest>=8,<10"]
@@ -17,6 +17,8 @@ live = ["instagrapi>=3.2,<4"]
 buscainsta = "buscainsta.cli:main"
 buscainsta-pilot = "buscainsta.pilot:main"
 buscainsta-dashboard = "buscainsta.dashboard:main"
+buscainsta-radar = "buscainsta.radar.cli:main"
+buscainsta-radar-server = "buscainsta.radar.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -25,4 +27,4 @@ where = ["src"]
 testpaths = ["tests"]
 
 [tool.setuptools.package-data]
-buscainsta = ["static/*.html"]
+buscainsta = ["static/*.html", "radar/static/*.html", "radar/static/*.js"]

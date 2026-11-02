@@ -24,6 +24,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install test dependencies
         run: python -m pip install -e ".[test]"
+      - name: Check Radar frontend JavaScript syntax
+        run: node --check src/buscainsta/radar/static/radar.js
       - name: Unit tests and CLI negative paths
         run: python -m pytest -q
       - name: Synthetic smoke test
