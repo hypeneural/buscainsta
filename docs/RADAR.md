@@ -132,6 +132,10 @@ Manifestos locais são um caminho explícito de importação, não um endpoint p
 - Vídeos locais suportam HTTP byte ranges (206), permitindo carregamento parcial e navegação.
 - Próximas fases: paginação completa e agendamento autorizado da Graph API, gerenciamento de direitos, mídia arquivada por fontes licenciadas, React Masonic + lightbox, backup e testes E2E reais no Windows.
 
+## Viabilidade de Stories de perfis seguidos
+
+A auditoria detalhada de `get_reels_tray_feed`, `user_stories`, `story_seen`, `media_seen`, estado de following e limitações de visibilidade está em [RADAR_STORIES_FORENSIC.md](RADAR_STORIES_FORENSIC.md). **Não há automação de visualizações nessa feature.** A possibilidade técnica de marcar Stories como vistos na API privada da `instagrapi` não equivale a autorização da Meta nem comprova aparecimento na lista de espectadores de terceiros. A evolução segura é um painel de revisão com abertura manual no aplicativo oficial.
+
 ## Referências
 - instagrapi (experimental, não oficial): https://github.com/subzeroid/instagrapi
 - Masonic: https://github.com/jaredLunde/masonic
