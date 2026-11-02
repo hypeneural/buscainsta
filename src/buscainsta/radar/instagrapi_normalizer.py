@@ -24,8 +24,10 @@ def maybe_count(value):
 
 
 def utc_timestamp(value) -> str:
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if not isinstance(value, datetime) or value.tzinfo is None:
-        raise ValueError("instagrapi timestamps must be aware datetime objects")
+        raise ValueError("instagrapi timestamps must be timezone-aware")
     return value.astimezone(timezone.utc).isoformat()
 
 
@@ -44,7 +46,7 @@ def normalize_comments(media: Any, limit=10) -> list[dict]:
         cleaned.append({
             "id": pk, "username": str(attribute(author, "username") or ""),
             "text": str(attribute(node, "text") or ""),
-            "created_at": utc_timestamp(created) if isinstance(created, datetime) else None,
+            "created_at": utc_timestamp(created) if isinstance(created, (datetime, str)) else None,
             "likes": maybe_count(attribute(node, "like_count")),
             "reply_count": maybe_count(attribute(node, "replies_count")),
         })
