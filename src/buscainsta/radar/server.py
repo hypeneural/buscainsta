@@ -111,6 +111,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._static(STATIC / "radar.js", "application/javascript; charset=utf-8")
             if parsed.path == "/api/refresh-status":
                 return self.send_json(self.server.refresh.status())
+            if parsed.path == "/api/cache-health":
+                return self.send_json(store.cache_report(self.server.root, verify_hashes=False))
             if parsed.path == "/api/config":
                 self.server.refresh.request()
                 return self.send_json({"csrf": self.server.csrf,
