@@ -60,7 +60,10 @@ def import_legacy(db_path: Path, html_path: Path) -> dict:
         for r in data:
             phone = _normalize_digits(str(r.get("wa_clean") or r.get("phone_raw") or ""))
             name = str(r.get("name") or "").strip()
-            if not phone or not name or len(name) > 200:
+            if not name:
+                crm_tag = str(r.get("crm_id") or "").strip()
+                name = f"Cliente CRM {crm_tag}" if crm_tag else f"Cliente {phone}"
+            if not phone or len(name) > 200:
                 skipped += 1
                 continue
             if phone in encountered:

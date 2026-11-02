@@ -125,3 +125,20 @@ def test_standard_csv_does_not_silently_merge_repeated_crm_ids(tmp_path):
     with pytest.raises(ValueError, match="Duplicate contact_id"):
         store.import_contacts(db,inp)
     assert store.list_contacts(db)["total"] == 0
+
+
+def test_import_fallback_for_empty_customer_name(tmp_path):
+    rows = [
+        dict(crm_id="999", name="", wa_clean="5548999990001",
+             email="", instagram="", ig_method="",
+             score_vip=10, segmento_vip="Outros", rank=999, total_pedidos="0",
+             ensaios_natal="0", anos_natal="0", ultimo_natal_ano="",
+             ltv_fmt="-", gasto_natal_fmt="-", situacao_2026="Revalidar")
+    ]
+    source = make_legacy(tmp_path, rows=rows)
+    db = tmp_path / "private" / "local.db"
+    res = import_legacy(db, source)
+    assert res["added"] == 1
+    items = store.list_contacts(db)["items"]
+    assert len(items) == 1
+    assert items[0]["full_name"] == "Cliente CRM 999"
