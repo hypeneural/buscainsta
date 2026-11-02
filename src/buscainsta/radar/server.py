@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 from . import query, store
+from .refresh import RefreshManager
 
 STATIC = Path(__file__).with_name("static")
 RANGE = re.compile(r"^bytes=(\d*)-(\d*)$")
@@ -108,13 +109,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self._static(STATIC / "radar.html", "text/html; charset=utf-8")
             if parsed.path == "/radar.js":
                 return self._static(STATIC / "radar.js", "application/javascript; charset=utf-8")
+            if parsed.path == "/api/refresh-status":
+                return self.send_json(self.server.refresh.status())
             if parsed.path == "/api/config":
+                self.server.refresh.request()
                 return self.send_json({"csrf": self.server.csrf,
                                        "timezone": "America/Sao_Paulo",
-                                       "mode": "offline_archive"})
+                                       "mode": "offline_archive",
+                                       "metadata_refresh": self.server.refresh.status()})
             if parsed.path == "/api/competitors":
                 return self.send_json(query.profiles(self.server.root))
             if parsed.path == "/api/stats":
+                self.server.refresh.request()
                 return self.send_json(query.overview(self.server.root))
             if parsed.path == "/api/posts":
                 params = parse_qs(parsed.query)
@@ -125,6 +131,8 @@ class Handler(BaseHTTPRequestHandler):
                     search=param("search"), from_date=param("from"),
                     to_date=param("to"), sort=param("sort", "recent"),
                     archived=param("archived", "all"),
+                    min_likes=int(param("min_likes", "0")),
+                    has_comments=param("has_comments", "false") == "true",
                     limit=int(param("limit", "40")), offset=int(param("offset", "0"))))
             if parsed.path.startswith("/api/blob/"):
                 return self._blob(parsed.path.removeprefix("/api/blob/"))
@@ -149,6 +157,8 @@ class Handler(BaseHTTPRequestHandler):
             data = json.loads(self.rfile.read(length).decode("utf-8"))
             if not isinstance(data, dict):
                 raise ValueError("Invalid JSON body")
+            if self.path == "/api/refresh":
+                return self.send_json(self.server.refresh.request(force=True))
             if self.path == "/api/competitors":
                 result = query.add_profile(self.server.root,
                                            str(data["username"]), str(data.get("name", "")))
@@ -165,11 +175,14 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"error": "Falha de armazenamento local"}, 503)
 
 
-def create_server(root: Path, port: int = 8766):
+def create_server(root: Path, port: int = 8766, *, refresh_meta=False,
+                  refresh_interval=1800, refresh_limit=20):
     store.initialize(root)
     http = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     http.root = store.private_root(root)
     http.csrf = secrets.token_urlsafe(32)
+    http.refresh = RefreshManager(http.root, enabled=refresh_meta,
+                                  interval=refresh_interval, limit=refresh_limit)
     http.daemon_threads = True
     return http
 
@@ -178,10 +191,17 @@ def main():
     parser = argparse.ArgumentParser(description="BuscaInsta Radar local dashboard")
     parser.add_argument("--root", type=Path, default=Path.home() / "BuscaInstaRadar")
     parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--refresh-meta-on-access", action="store_true",
+                        help="Explicitly allow background official Meta refresh while viewing")
+    parser.add_argument("--refresh-interval", type=int, default=1800)
+    parser.add_argument("--refresh-limit", type=int, default=20)
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         parser.error("Porta inválida")
-    with create_server(args.root, args.port) as http:
+    with create_server(args.root, args.port,
+                       refresh_meta=args.refresh_meta_on_access,
+                       refresh_interval=args.refresh_interval,
+                       refresh_limit=args.refresh_limit) as http:
         print(f"Radar: http://127.0.0.1:{http.server_port}/", flush=True)
         http.serve_forever()
 
