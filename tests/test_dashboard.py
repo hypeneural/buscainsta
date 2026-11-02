@@ -198,7 +198,9 @@ def test_reject_wrong_authenticated_account(monkeypatch):
     monkeypatch.setenv("BUSCAINSTA_IG_TEST_LOGIN", "tester")
     monkeypatch.setenv("BUSCAINSTA_IG_TEST_PASSWORD", "redacted")
     class WrongAccount(FakeIG):
-        username = "somebody_else"
+        def __init__(self):
+            super().__init__()
+            self.username = "somebody_else"
     adapter = InstagramActions("conta_estudio", client_factory=WrongAccount)
     with pytest.raises(PublicSafeError, match="login unavailable|differs"):
         adapter.inspect("cliente_teste")
