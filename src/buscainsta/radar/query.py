@@ -14,6 +14,8 @@ SORTS = {
     "oldest": "p.posted_at ASC, p.id ASC",
     "likes": "p.likes IS NULL, p.likes DESC, p.posted_at DESC, p.id DESC",
     "comments": "p.comments IS NULL, p.comments DESC, p.posted_at DESC, p.id DESC",
+    "shares": "p.shares IS NULL, p.shares DESC, p.posted_at DESC, p.id DESC",
+    "plays": "COALESCE(p.plays,p.views) IS NULL, COALESCE(p.plays,p.views) DESC, p.posted_at DESC, p.id DESC",
     "detected": "p.first_seen_at DESC, p.id DESC",
 }
 KINDS = {"image", "video", "carousel", "story"}
@@ -88,11 +90,15 @@ def utc_boundary(value: str, plus_days: int = 0) -> str:
 
 def search_posts(root, *, username: str = "", kind: str = "", search: str = "",
                  from_date: str = "", to_date: str = "", sort: str = "recent",
-                 archived: str = "all", limit: int = 40, offset: int = 0) -> dict:
+                 archived: str = "all", min_likes: int = 0,
+                 has_comments: bool = False,
+                 limit: int = 40, offset: int = 0) -> dict:
     if type(limit) is not int or not 1 <= limit <= 100 or type(offset) is not int or not 0 <= offset <= 100000:
         raise ValueError("Invalid pagination")
     if sort not in SORTS or (kind and kind not in KINDS) or archived not in ASSETS:
         raise ValueError("Invalid filter")
+    if type(min_likes) is not int or not 0 <= min_likes <= 1000000000 or type(has_comments) is not bool:
+        raise ValueError("Invalid engagement filter")
     if len(search) > 120:
         raise ValueError("Search too long")
     conditions = []
@@ -116,6 +122,11 @@ def search_posts(root, *, username: str = "", kind: str = "", search: str = "",
         params.append(utc_boundary(to_date, 1))
     if from_date and to_date and date.fromisoformat(from_date)>date.fromisoformat(to_date):
         raise ValueError("Invalid date interval")
+    if min_likes > 0:
+        conditions.append("p.likes>=?")
+        params.append(min_likes)
+    if has_comments:
+        conditions.append("p.comments>0")
     if archived == "local":
         conditions.append("EXISTS (SELECT 1 FROM post_assets a WHERE a.post_id=p.id AND a.sha256 IS NOT NULL)")
     elif archived == "missing":
@@ -138,6 +149,7 @@ def search_posts(root, *, username: str = "", kind: str = "", search: str = "",
                 assets.setdefault(row["post_id"], []).append(row)
         for post in result:
             post["assets"] = assets.get(post["id"], [])
+            post["comment_previews"] = store.comment_previews(root, post["id"], limit=10)
             post["locally_archived"] = any(a["sha256"] for a in post["assets"])
         return {"items": result, "total": total, "offset": offset,
                 "limit": limit, "has_more": offset + len(result) < total}
