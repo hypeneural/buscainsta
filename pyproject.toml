@@ -17,6 +17,8 @@ live = ["instagrapi>=3.2,<4"]
 buscainsta = "buscainsta.cli:main"
 buscainsta-pilot = "buscainsta.pilot:main"
 buscainsta-dashboard = "buscainsta.dashboard:main"
+buscainsta-radar = "buscainsta.radar.cli:main"
+buscainsta-radar-server = "buscainsta.radar.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -25,4 +27,4 @@ where = ["src"]
 testpaths = ["tests"]
 
 [tool.setuptools.package-data]
-buscainsta = ["static/*.html"]
+buscainsta = ["static/*.html", "radar/static/*.html", "radar/static/*.js"]
