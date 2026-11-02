@@ -46,10 +46,13 @@ def add_many_profiles(root, values: list[str]) -> dict:
     if not isinstance(values, list) or not 1 <= len(values) <= 50:
         raise ValueError("Submit 1 to 50 usernames")
     normalized = list(dict.fromkeys(normalize_username(str(x)) for x in values))
+    created = 0
     with store.db_connect(root) as db:
         for username in normalized:
-            db.execute("""INSERT OR IGNORE INTO competitors(username) VALUES(?)""", (username,))
-    return {"saved": len(normalized), "usernames": normalized}
+            created += db.execute("""INSERT OR IGNORE INTO competitors(username) VALUES(?)""",
+                                  (username,)).rowcount
+    return {"saved": len(normalized), "created": created,
+            "existing": len(normalized) - created, "usernames": normalized}
 
 
 def set_profile(root, value: str, enabled: bool) -> dict:
