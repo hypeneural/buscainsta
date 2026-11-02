@@ -6,6 +6,7 @@ from pathlib import Path
 
 from . import importer, query, store
 from .meta_business import ProviderError, sync_profile
+from .instagrapi_normalizer import import_authorized_export
 
 DEFAULT_ROOT = Path.home() / "BuscaInstaRadar"
 
@@ -22,6 +23,9 @@ def main():
     imp = sub.add_parser("import")
     imp.add_argument("manifest", type=Path)
     imp.add_argument("--media-directory", type=Path)
+    exp = sub.add_parser("import-instagrapi", help="Import a consented local Media JSON export, no login")
+    exp.add_argument("file", type=Path)
+    exp.add_argument("--username", required=True)
     meta = sub.add_parser("sync-meta", help="Read official Meta Business Discovery; metadata only")
     selected = meta.add_mutually_exclusive_group(required=True)
     selected.add_argument("--username")
@@ -41,6 +45,8 @@ def main():
             result = query.add_profile(args.root, args.username)
         elif args.command == "import":
             result = importer.import_manifest(args.root, args.manifest, args.media_directory)
+        elif args.command == "import-instagrapi":
+            result = import_authorized_export(args.root, args.file, args.username)
         else:
             if not args.confirm_official_api:
                 raise ValueError("Explicit confirmation required for external Meta API request")
