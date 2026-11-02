@@ -1,0 +1,20 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BuscaInsta · Radar</title><style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#eef1f7;background:#111722}
+body{margin:0}header{padding:22px 5%;background:#1b2637;display:flex;justify-content:space-between;gap:12px;align-items:center}
+header h1{font-size:22px;margin:0}main{max-width:1500px;margin:auto;padding:20px 5%}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+select,button{background:#263951;color:white;border:1px solid #42617b;border-radius:8px;padding:10px;cursor:pointer}
+section.mural{columns:4 220px;column-gap:14px}
+article{break-inside:avoid;background:#1c293a;border-radius:12px;overflow:hidden;margin:0 0 14px;border:1px solid #304154}
+article img,article video{width:100%;height:auto;display:block;max-height:410px;object-fit:contain;background:#111}
+article .info{padding:12px;overflow-wrap:anywhere}small{color:#aac0d3}a{color:#8ed5ff}
+.preview{display:flex;gap:6px;overflow-x:auto;max-width:100%}.preview img{width:90px;height:90px;object-fit:cover}
+dialog{background:#101924;color:white;border:1px solid #44617b;border-radius:12px;max-width:92vw;max-height:90vh}
+dialog img,dialog video{max-width:85vw;max-height:70vh}dialog .nav{display:flex;gap:8px;justify-content:space-between}
+@media(max-width:650px){header{display:block}section.mural{columns:2 150px}}
+</style></head><body><header><h1>📷 BuscaInsta · Radar de Concorrentes</h1><small id="health">Acervo local</small></header>
+<main><div class="controls"><select id="profile" aria-label="Concorrente"><option value="">Todos os concorrentes</option></select>
+<select id="kind" aria-label="Tipo de mídia"><option value="">Todas as mídias</option><option value="image">Fotos</option><option value="video">Vídeos / Reels</option><option value="carousel">Carrosséis</option><option value="story">Stories</option></select>
+<button id="refresh">Atualizar mural</button></div><p id="status" role="status"></p><section class="mural" id="mural" aria-label="Mural de publicações"></section><button id="more">Carregar mais</button></main>
+<dialog id="viewer"><button id="close">Fechar ×</button><div id="viewer-content"></div><div class="nav"><button id="prev">Anterior</button><span id="counter"></span><button id="next">Próximo</button></div></dialog>
+<script src="/radar.js" defer></script></body></html>
