@@ -78,7 +78,8 @@ def normalize_payload(username: str, payload: dict) -> list[dict]:
             "caption": str(media.get("caption") or ""),
             "likes": media.get("like_count"),
             "comments": media.get("comments_count"),
-            "media_product_type": str(media.get("media_product_type") or ""),
+            "media_product_type": str(media.get("media_product_type") or
+                                     ("REELS" if "/reel/" in permalink else "FEED")),
             # Business Discovery does not provide private competitor media insights.
             "shares": None, "saves": None, "plays": None,
             "source_note": "Meta Business Discovery: public fields only",
@@ -104,7 +105,7 @@ def fetch_discovery(username: str, ig_user_id: str, token: str,
         "business_discovery.username(" + username + "){"
         "username,name,followers_count,media_count,"
         "media.limit(" + str(limit) + "){"
-        "id,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,"
+        "id,media_type,media_url,thumbnail_url,permalink,timestamp,"
         "caption,like_count,comments_count,"
         "children{id,media_type,media_url,thumbnail_url}}}"
     )
