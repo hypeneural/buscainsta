@@ -13,27 +13,58 @@
 header{background:#101827;border-bottom:1px solid #243144;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 h1{margin:0;font-size:23px;font-weight:750;color:#f5f8fc}h2{font-size:16px;margin:0 0 10px}
 .sub,small{color:#9faec3;margin-top:4px}
-main{max-width:1660px;margin:auto;padding:22px}
+main{max-width:1680px;margin:auto;padding:22px}
 .panel{background:#111b2b;border:1px solid #253249;border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 4px 20px rgba(0,0,0,.14)}
-.note{background:#1e2d41;padding:10px 12px;border-radius:8px;color:#d3e7f9;margin:0 0 8px}
+.note{background:#162438;border:1px solid #29405e;padding:12px 14px;border-radius:8px;color:#dcebfb;margin:0 0 8px;white-space:pre-wrap;line-height:1.45;font-size:13.5px}
+.msg-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+textarea#messageInput{width:100%;min-height:118px;background:#0b1221;border:1px solid #486388;color:#f4f7fc;padding:11px;border-radius:8px;font-family:inherit;font-size:13.5px;line-height:1.45;resize:vertical;margin-bottom:8px}
 .tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 input[type=search],input[type=text],select{background:#0b1221;border:1px solid #42526b;color:#f4f7fc;padding:9px 11px;border-radius:8px;font-size:14px}
 input[type=search]{min-width:260px;max-width:420px;width:34%}
 select{min-width:120px}
-button{background:#203149;border:1px solid #3d506a;border-radius:8px;padding:7px 10px;cursor:pointer;font-weight:600;color:#e5edf8;transition:background .15s,border-color .15s}
+button{background:#203149;border:1px solid #3d506a;border-radius:8px;padding:7px 11px;cursor:pointer;font-weight:600;color:#e5edf8;transition:background .15s,border-color .15s,transform .1s}
 button:hover:not(:disabled){background:#2a4060;border-color:#567296}
 button.primary{background:#1471be;border-color:#1471be;color:#fff}
 button.primary:hover:not(:disabled){background:#1982d8;border-color:#1982d8}
 button.subtle{background:#183049;border-color:#2f5b88;color:#b8dcff}
+button.loading{background:#2c3d1f;border-color:#7aa240;color:#eef9cf;cursor:wait}
 button.danger{background:#553042;color:#ffe3e5;border-color:#a44c5b}
-button:disabled{opacity:.38;cursor:not-allowed}
-.table-wrap{overflow-x:auto}.table-wrap table{border-collapse:collapse;width:100%;min-width:1260px}
-th,td{padding:10px 8px;border-bottom:1px solid #26364c;text-align:left;vertical-align:middle;white-space:nowrap}
-th{background:#1d2c42;position:sticky;top:0;color:#bed0e5;font-size:12px;z-index:1}
-td .muted{color:#99a6b9}td .small{font-size:12px}
-img.avatar{width:50px;height:50px;border-radius:50%;object-fit:cover;background:#1b283b;border:2px solid #334968;display:block}
-.avatar-empty{width:50px;height:50px;border-radius:50%;background:#162235;border:1px dashed #374b67;display:flex;align-items:center;justify-content:center;color:#7e90a8;font-size:11px}
-.actions{display:flex;gap:6px;flex-wrap:wrap;min-width:210px}
+button:disabled{opacity:.42;cursor:not-allowed}
+.table-wrap{overflow-x:auto}.table-wrap table{border-collapse:collapse;width:100%;min-width:1240px}
+th,td{padding:12px 10px;border-bottom:1px solid #223247;text-align:left;vertical-align:middle;white-space:nowrap}
+tbody tr:hover{background:rgba(28,45,69,.38)}
+th{background:#1a283d;position:sticky;top:0;color:#bed0e5;font-size:12px;text-transform:uppercase;letter-spacing:.03em;z-index:1}
+td .muted{color:#8fa0b6}td .small{font-size:12px}
+
+/* Larger clickable profile photo */
+img.avatar{width:72px;height:72px;border-radius:50%;object-fit:cover;background:#1b283b;border:2px solid #3b5578;display:block;cursor:zoom-in;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+img.avatar:hover{transform:scale(1.07);border-color:#6bc0ff;box-shadow:0 6px 18px rgba(20,113,190,.42)}
+.avatar-empty{width:72px;height:72px;border-radius:50%;background:#141f31;border:1px dashed #354965;display:flex;align-items:center;justify-content:center;color:#7688a1;font-size:11px;text-align:center;padding:4px}
+
+/* Organized Client Cell */
+.client-cell{display:flex;flex-direction:column;gap:6px;white-space:normal;min-width:270px;max-width:390px}
+.client-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.client-name{font-size:17px;font-weight:750;color:#f7faff;line-height:1.2}
+.contact-icons{display:inline-flex;align-items:center;gap:5px}
+.contact-icon{width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;text-decoration:none;border:1px solid #334966;background:#172538;transition:transform .12s,border-color .12s,background .12s}
+.contact-icon:hover{text-decoration:none;transform:translateY(-1px)}
+.contact-icon.wa{border-color:#236b4c;background:#113627;color:#a8f5c8}
+.contact-icon.wa:hover{background:#174b36;border-color:#3ad08b}
+.contact-icon.mail{border-color:#2f557d;background:#152942;color:#b8dcff}
+.contact-icon.mail:hover{background:#1d395c;border-color:#68b5ff}
+.vip-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.metrics-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.metric-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:6px;background:#172437;border:1px solid #2a3d59;color:#d6e4f7;font-size:12px;font-weight:600}
+.metric-chip.natal{background:#182d2b;border-color:#285750;color:#c3f5ea}
+.metric-chip.year{background:#25233d;border-color:#443f6e;color:#ded9ff}
+
+/* Profile & timestamp info */
+.profile-cell{display:flex;flex-direction:column;gap:4px}
+.handle-link{font-weight:700;font-size:14.5px}
+.sync-stamp{font-size:11.5px;color:#8fa3bd;display:inline-flex;align-items:center;gap:4px}
+.sync-stamp.fresh{color:#8ef0b8;font-weight:650}
+
+.actions{display:flex;gap:6px;flex-wrap:wrap;min-width:215px}
 label.toggle{display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer}
 label.toggle input{width:16px;height:16px}
 .status{font-size:12px;border-radius:16px;padding:4px 9px;background:#374256;color:#dce5f3;display:inline-block;font-weight:600}
@@ -41,7 +72,7 @@ label.toggle input{width:16px;height:16px}
 .status.no{background:#52333a;color:#ffc1c1;border:1px solid #8a4956}
 .status.unknown{background:#354052;color:#c8d3e2}
 .verify-group{display:inline-flex;align-items:center;gap:6px}
-.icon-btn{width:34px;height:34px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;line-height:1;background:#182436;border:1px solid #394b65;color:#9fb0c7}
+.icon-btn{width:35px;height:35px;padding:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;line-height:1;background:#182436;border:1px solid #394b65;color:#9fb0c7}
 .icon-btn.check:hover:not(:disabled){border-color:#2ea06d;color:#b9f5cf;background:#123829}
 .icon-btn.reject:hover:not(:disabled){border-color:#d14d63;color:#ffc1c1;background:#3d1d27}
 .icon-btn.check.active{background:#157347;border-color:#3dd58c;color:#ffffff;box-shadow:0 0 0 2px rgba(61,213,140,.22)}
@@ -56,13 +87,16 @@ footer{padding:16px 0;color:#8fa0b5;font-size:12px}#page{font-weight:700}
 .stat-card{background:#111b2b;border:1px solid #263651;border-radius:12px;padding:15px}
 .stat-value{font-size:26px;font-weight:800;color:#e6f0fb}
 .stat-label{color:#a9b7ca;font-size:12px;margin-top:4px}
-.vip-pill{display:inline-block;padding:3px 7px;margin-right:5px;border-radius:6px;background:#263c57;color:#d3e5ff;font-size:11px;font-weight:600}
+.vip-pill{display:inline-block;padding:2px 7px;border-radius:6px;background:#263c57;color:#d3e5ff;font-size:11px;font-weight:650}
 .vip-pill.P0{background:#76364c;color:#ffc9d6}
 .vip-pill.P1{background:#51417c;color:#ddccff}
 .vip-pill.P2{background:#194f49;color:#b9f3e8}
-.vip-sub{color:#b4c3d7;font-size:11px;white-space:normal;max-width:340px}
-dialog{background:#111b2b;color:#edf2fa;border:1px solid #354a69;border-radius:14px;padding:20px;max-width:760px;width:94vw;box-shadow:0 18px 50px rgba(0,0,0,.65)}
-dialog::backdrop{background:rgba(4,8,16,.76)}
+.vip-pill.n26-ok{background:#144936;color:#b6f6cf}
+.vip-pill.n26-pending{background:#2d384c;color:#b6c4d9;font-weight:500}
+
+/* Modals */
+dialog{background:#111b2b;color:#edf2fa;border:1px solid #354a69;border-radius:14px;padding:20px;max-width:760px;width:94vw;box-shadow:0 18px 50px rgba(0,0,0,.68)}
+dialog::backdrop{background:rgba(4,8,16,.8)}
 .modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
 .modal-search{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .modal-search input{flex:1;min-width:220px}
@@ -70,6 +104,11 @@ dialog::backdrop{background:rgba(4,8,16,.76)}
 .cand-card{background:#0c1422;border:1px solid #273954;border-radius:10px;padding:12px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 .cand-meta{display:flex;flex-direction:column;gap:4px}
 .cand-pills{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* Photo Lightbox Modal */
+dialog#photoDialog{max-width:500px;text-align:center}
+.photo-large-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+img.photo-large{width:380px;height:380px;max-width:82vw;max-height:65vh;border-radius:18px;object-fit:cover;border:2px solid #3d5a80;background:#0b1220;box-shadow:0 10px 30px rgba(0,0,0,.5)}
 @media(max-width:800px){main{padding:12px}header{padding:14px}input[type=search]{width:100%;min-width:100px}.tools{gap:8px}.stats-grid{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
@@ -82,13 +121,21 @@ dialog::backdrop{background:rgba(4,8,16,.76)}
 <main>
 <section id="stats" class="stats-grid" aria-label="Indicadores do painel"></section>
 <section class="panel">
-<h2>Mensagem fixa do Direct</h2>
-<p class="note" id="message">Carregando…</p>
-<p class="sub" style="margin:0">Todos os contatos já estão autorizados. Marque o perfil com <strong>✓</strong>, confira foto/seguidores e aprove cada envio individualmente. Aceite da API não comprova leitura/entrega.</p>
+<div class="msg-head">
+  <h2 style="margin:0">Mensagem do Direct <span class="vip-pill" style="margin-left:6px">{primeiro_nome} automático</span></h2>
+  <div style="display:flex;gap:6px">
+    <button id="editMsgBtn" type="button" class="subtle">✏️ Editar mensagem</button>
+    <button id="saveMsgBtn" type="button" class="primary" style="display:none">💾 Salvar mensagem</button>
+    <button id="cancelMsgBtn" type="button" style="display:none">Cancelar</button>
+  </div>
+</div>
+<div class="note" id="message">Carregando…</div>
+<textarea id="messageInput" style="display:none" aria-label="Editar modelo da mensagem do Direct"></textarea>
+<p class="sub" style="margin:0">Use <code>{primeiro_nome}</code> para inserir o 1º nome do cliente automaticamente. Marque o perfil com <strong>✓</strong> e aprove cada envio individualmente.</p>
 </section>
 <section class="panel tools">
 <input type="search" id="search" placeholder="Buscar por nome, telefone, ID ou @Instagram" aria-label="Buscar contatos"/>
-<button id="searchBtn" class="primary">Pesquisar</button>
+<button id="searchBtn" class="primary" type="button">Pesquisar</button>
 <label class="toggle">Prioridade
 <select id="segment" aria-label="Filtrar prioridade">
 <option value="">Todas</option>
@@ -106,15 +153,29 @@ dialog::backdrop{background:rgba(4,8,16,.76)}
 <section class="panel table-wrap">
 <table>
 <thead><tr>
-<th>Foto</th><th>Cliente / ranking VIP / ensaios</th><th>Perfil / situação</th>
+<th>Foto</th><th>Cliente / Pedidos &amp; Natal</th><th>Perfil / Última consulta</th>
 <th>Nos segue?</th><th>Seguimos?</th><th>Conferido?</th>
 <th>Último Direct / horário</th><th>Ações</th>
 </tr></thead>
 <tbody id="rows"><tr><td colspan="8">Carregando dados…</td></tr></tbody>
 </table>
 </section>
-<footer>Dados privados no computador. Resultados de busca por nome ou sugestão não são comprovação de identidade. Estado “Desconhecido” não significa “Não segue”.</footer>
+<footer>Dados privados no computador. Clique na foto para ampliar. Passe o mouse nos ícones 💬 / ✉️ para ver telefone ou e-mail.</footer>
 </main>
+
+<dialog id="photoDialog" aria-label="Foto ampliada do perfil">
+  <div class="modal-head">
+    <div style="text-align:left">
+      <h2 id="photoModalName" style="margin:0">Foto do perfil</h2>
+      <div id="photoModalHandle" class="sub"></div>
+    </div>
+    <button id="photoModalClose" type="button">Fechar ✕</button>
+  </div>
+  <div class="photo-large-wrap">
+    <img id="photoModalImg" class="photo-large" alt="Foto ampliada do cliente"/>
+    <div id="photoModalBadges" class="cand-pills"></div>
+  </div>
+</dialog>
 
 <dialog id="searchDialog" aria-label="Pesquisar perfil no Instagram">
   <div class="modal-head">
@@ -138,11 +199,31 @@ let csrf=document.querySelector('meta[name="csrf-token"]').content;
 const tbody=document.getElementById("rows");
 let config={},currentItems=[],page=1,total=0,query="",segment="",instagramOnly=false,verifiedOnly=false;
 let batchRunning=false,activeModalContact=null;
+const inspectingIds=new Set();
+const justUpdatedIds=new Map();
+const HONORIFICS=new Set(["dr","dra","doutor","doutora","sr","sra","arq","prof","profa"]);
+
 const byId=id=>document.getElementById(id);
 const el=(name,text,classname)=>{const node=document.createElement(name);if(text!==undefined&&text!==null)node.textContent=String(text);if(classname)node.className=classname;return node;};
 const td=(tr)=>{const x=el("td");tr.appendChild(x);return x;};
 const message=(s,bad=false)=>{const n=byId("notice");n.textContent=s;n.className=bad?"error":"";};
 const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+
+function extractFirstName(fullName){
+ const raw=String(fullName||"").trim();
+ if(!raw||raw.toLowerCase().startsWith("cliente crm"))return "";
+ const tokens=raw.split(/\s+/).map(t=>t.replace(/^[.,;:()[\]{}]+|[.,;:()[\]{}]+$/g,"")).filter(Boolean);
+ while(tokens.length>1&&HONORIFICS.has(tokens[0].toLowerCase()))tokens.shift();
+ if(!tokens.length||!/[a-zA-ZÀ-ÿ]/.test(tokens[0]))return "";
+ return tokens[0].split("-").map(p=>p?p.charAt(0).toUpperCase()+p.slice(1).toLowerCase():"").join("-");
+}
+
+function renderDirectPreview(template,fullName){
+ const tpl=String(template||"");
+ const first=extractFirstName(fullName);
+ if(first)return tpl.replace(/\{primeiro_nome\}/gi,first);
+ return tpl.replace(/\s*\{primeiro_nome\}/gi,"").trim();
+}
 
 async function api(url,opts={}){
  const response=await fetch(url,{cache:"no-store",...opts});
@@ -169,20 +250,60 @@ async function post(id,action,payload,silent=false){
    headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},
    body:JSON.stringify(payload)
   });
+  if(action==="inspect"||action==="select-candidate"){
+   justUpdatedIds.set(id,Date.now());
+  }
   if(!silent){
-   message(res.warning?("Atualizado com aviso: "+res.warning):"Atualizado.");
+   const label=action==="inspect"?"✓ Foto e status atualizados com sucesso!":(res.warning?("Atualizado com aviso: "+res.warning):"Atualizado com sucesso.");
+   message(label,!!res.warning);
    await Promise.all([load(),refreshStats()]);
   }
   return res;
  }catch(e){
   if(!silent){message(e.message,true);await load();}
-  throw e;
+  return null;
+ }
+}
+
+async function inspectRow(item,btn){
+ if(inspectingIds.has(item.contact_id))return;
+ inspectingIds.add(item.contact_id);
+ if(btn){
+  btn.disabled=true;
+  btn.textContent="⏳ Atualizando…";
+  btn.classList.add("loading");
+ }
+ message("Consultando @"+item.candidate_username+" no Instagram…");
+ try{
+  await post(item.contact_id,"inspect",{},false);
+ }finally{
+  inspectingIds.delete(item.contact_id);
  }
 }
 
 function statusLabel(v){return v==="yes"?"Sim":v==="no"?"Não":"Desconhecido";}
 function stamp(v){if(!v)return "—";const d=new Date(v);return isNaN(d)?"—":d.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});}
 function button(parent,label,callback,disabled=false,cls="",title=""){const b=el("button",label,cls);b.type="button";b.disabled=disabled;if(title)b.title=title;b.onclick=callback;parent.appendChild(b);return b;}
+
+function openPhotoModal(item,src){
+ const dlg=byId("photoDialog");
+ byId("photoModalName").textContent=item.full_name;
+ const sub=byId("photoModalHandle");sub.replaceChildren();
+ if(item.candidate_username){
+  const a=el("a","@"+item.candidate_username);
+  a.href="https://www.instagram.com/"+encodeURIComponent(item.candidate_username)+"/";
+  a.target="_blank";a.rel="noopener noreferrer";
+  sub.append(a,el("span",item.instagram_name?(" · "+item.instagram_name):""));
+ }
+ const img=byId("photoModalImg");
+ img.src=src;
+ img.alt="Foto de "+item.full_name;
+ const badges=byId("photoModalBadges");badges.replaceChildren();
+ badges.appendChild(el("span","Nos segue: "+statusLabel(item.follows_us),"status "+item.follows_us));
+ badges.appendChild(el("span","Seguimos: "+statusLabel(item.we_follow),"status "+item.we_follow));
+ if(item.checked_at)badges.appendChild(el("span","Consultado: "+stamp(item.checked_at),"status unknown"));
+ if(!dlg.open)dlg.showModal();
+}
 
 function renderHeaderConfig(){
  const box=byId("account");box.replaceChildren();
@@ -196,42 +317,95 @@ function renderItem(item){
  const tr=el("tr");
  const pic=td(tr);
  if(item.photo_local){
-  const img=el("img");img.className="avatar";img.alt="Foto";img.loading="lazy";
-  img.src="/api/avatar?cid="+encodeURIComponent(item.contact_id)+"&v="+encodeURIComponent(item.checked_at||"1");
+  const src="/api/avatar?cid="+encodeURIComponent(item.contact_id)+"&v="+encodeURIComponent(item.checked_at||"1");
+  const img=el("img");img.className="avatar";img.alt="Foto de "+item.full_name;img.loading="lazy";
+  img.src=src;
+  img.title="Clique para ampliar a foto";
+  img.onclick=()=>openPhotoModal(item,src);
   pic.appendChild(img);
  }else{
   pic.appendChild(el("div","Sem foto","avatar-empty"));
  }
 
- const person=td(tr);person.appendChild(el("strong",item.full_name));
- const labels=el("div",undefined,"small");
- if(item.vip_rank)labels.appendChild(el("span","#"+item.vip_rank,"vip-pill"));
- if(item.vip_segment)labels.appendChild(el("span",item.vip_segment,"vip-pill "+item.vip_segment));
- if(item.vip_score)labels.appendChild(el("span","Score "+item.vip_score,"vip-pill"));
- person.appendChild(labels);
- person.appendChild(el("div","CRM: "+(item.crm_id||"não disponível")+" | Ensaios Natal: "+(item.natal_sessions||0)+" | Pedidos: "+(item.total_orders||0)+" | Último Natal: "+(item.last_natal_year||"—"),"vip-sub"));
- person.appendChild(el("div","LTV: "+(item.ltv_display||"não disponível")+" | Natal 2026: "+(item.natal_2026||"revalidar"),"vip-sub"));
- person.appendChild(el("div",item.contact_id,"muted small"));
+ /* Organized Client Column */
+ const person=td(tr);
+ const wrapPerson=el("div",undefined,"client-cell");
+ const topRow=el("div",undefined,"client-top");
+ topRow.appendChild(el("span",item.full_name,"client-name"));
+
+ const icons=el("div",undefined,"contact-icons");
  if(item.phone){
   const phoneDigits=item.phone.replace(/[^0-9]/g,"");
-  if(phoneDigits){const wa=el("a",item.phone);wa.href="https://wa.me/"+phoneDigits;wa.target="_blank";wa.rel="noopener noreferrer";person.appendChild(wa);}
-  else person.appendChild(el("div",item.phone,"small"));
- }else person.appendChild(el("div","Sem telefone","small"));
- person.appendChild(el("div",item.email||"Sem e-mail","muted small"));
+  if(phoneDigits){
+   const wa=el("a","💬","contact-icon wa");
+   wa.href="https://wa.me/"+phoneDigits;wa.target="_blank";wa.rel="noopener noreferrer";
+   wa.title="WhatsApp: "+item.phone;
+   wa.setAttribute("aria-label","WhatsApp "+item.phone);
+   icons.appendChild(wa);
+  }
+ }
+ if(item.email){
+  const mail=el("a","✉️","contact-icon mail");
+  mail.href="mailto:"+item.email;
+  mail.title="E-mail: "+item.email;
+  mail.setAttribute("aria-label","E-mail "+item.email);
+  icons.appendChild(mail);
+ }
+ if(icons.childNodes.length)topRow.appendChild(icons);
+ wrapPerson.appendChild(topRow);
 
+ const vipRow=el("div",undefined,"vip-row");
+ if(item.vip_rank)vipRow.appendChild(el("span","#"+item.vip_rank,"vip-pill"));
+ if(item.vip_segment)vipRow.appendChild(el("span",item.vip_segment,"vip-pill "+item.vip_segment));
+ if(item.vip_score)vipRow.appendChild(el("span","Score "+item.vip_score,"vip-pill"));
+ if(item.natal_2026){
+  const n26Upper=item.natal_2026.toUpperCase();
+  const isConfirmed26=n26Upper.includes("CONFIRMADO")&&!n26Upper.includes("NÃO")&&!n26Upper.includes("NAO");
+  vipRow.appendChild(el("span",isConfirmed26?"2026: Confirmado":"2026: Não agendado","vip-pill "+(isConfirmed26?"n26-ok":"n26-pending")));
+ }
+ if(vipRow.childNodes.length)wrapPerson.appendChild(vipRow);
+
+ const metricsRow=el("div",undefined,"metrics-row");
+ metricsRow.appendChild(el("span","📦 Pedidos: "+(item.total_orders||0),"metric-chip"));
+ metricsRow.appendChild(el("span","🎄 Ensaios Natal: "+(item.natal_sessions||0),"metric-chip natal"));
+ const lastYear=String(item.last_natal_year||"").trim();
+ if(lastYear&&lastYear!=="—"&&lastYear!=="0"&&lastYear.toLowerCase()!=="nan"){
+  metricsRow.appendChild(el("span","📅 Último Natal: "+lastYear,"metric-chip year"));
+ }
+ wrapPerson.appendChild(metricsRow);
+ person.appendChild(wrapPerson);
+
+ /* Profile & Last-Checked Column */
  const isRejected=item.status==="rejected";
  const isVerified=!!item.manually_verified;
  const profile=td(tr);
+ const profWrap=el("div",undefined,"profile-cell");
  if(item.candidate_username){
-  const link=el("a","@"+item.candidate_username,isRejected?"rejected-handle":"");
+  const link=el("a","@"+item.candidate_username,"handle-link"+(isRejected?" rejected-handle":""));
   link.href="https://www.instagram.com/"+encodeURIComponent(item.candidate_username)+"/";
   link.target="_blank";link.rel="noopener noreferrer";
-  profile.append(link,el("div",item.instagram_name||item.discovery_method||"Candidato","small"));
+  profWrap.appendChild(link);
+  if(item.instagram_name){
+   profWrap.appendChild(el("div",item.instagram_name,"small"));
+  }
  }else{
-  profile.append(el("span","Não encontrado","muted"));
+  profWrap.appendChild(el("span","Não encontrado","muted"));
  }
  const statusText=isVerified?"✓ Confirmado pelo operador":isRejected?"✕ Perfil descartado":(item.candidate_username?"Aguardando conferência":"Sem @ sugerido");
- profile.append(el("div",statusText,"muted small"));
+ profWrap.appendChild(el("div",statusText,"muted small"));
+
+ const recentTs=justUpdatedIds.get(item.contact_id);
+ const isFresh=recentTs&&(Date.now()-recentTs<15000);
+ if(item.checked_at){
+  profWrap.appendChild(el(
+   "div",
+   (isFresh?"✓ Atualizado agora · ":"🕒 Última consulta: ")+stamp(item.checked_at),
+   "sync-stamp"+(isFresh?" fresh":"")
+  ));
+ }else if(item.candidate_username){
+  profWrap.appendChild(el("div","Ainda não consultado","sync-stamp"));
+ }
+ profile.appendChild(profWrap);
 
  const followers=td(tr),followed=td(tr);
  for(const [cell,val] of [[followers,item.follows_us],[followed,item.we_follow]]){
@@ -267,16 +441,25 @@ function renderItem(item){
 
  const actions=td(tr),wrap=el("div",undefined,"actions");actions.appendChild(wrap);
  button(wrap,"🔍 Pesquisar IG",()=>openSearchModal(item),!config.read_enabled,"subtle","Buscar candidatos no Instagram via instagrapi");
- button(wrap,"🔄 Foto/Status",()=>post(item.contact_id,"inspect",{}),!config.read_enabled||!item.candidate_username,"","Atualizar foto e relação de seguidores");
+ const isInspecting=inspectingIds.has(item.contact_id);
+ const btnInspect=button(
+  wrap,
+  isInspecting?"⏳ Atualizando…":(isFresh?"✓ Foto/Status":"🔄 Foto/Status"),
+  ()=>inspectRow(item,btnInspect),
+  !config.read_enabled||!item.candidate_username||isInspecting,
+  isInspecting?"loading":"",
+  "Atualizar foto e relação de seguidores"
+ );
  button(wrap,"Editar @",()=>{
   const value=prompt("Informe o @username candidato",item.candidate_username||"");
   if(value!==null&&value.trim())post(item.contact_id,config.read_enabled?"select-candidate":"candidate",{username:value.trim()});
  },false,"","Informar @ manualmente");
  const canSend=config.direct_enabled&&isVerified&&item.dm_permitted&&item.instagram_pk&&item.checked_account===config.account&&item.last_dm_status==="never";
  button(wrap,"Enviar Direct",()=>{
-  if(confirm("Enviar esta mensagem fixa ao perfil @"+item.candidate_username+"?\n\n"+config.fixed_message+"\n\nO envio pode falhar ou virar uma solicitação de mensagem."))
+  const preview=renderDirectPreview(config.fixed_message,item.full_name);
+  if(confirm("Enviar esta mensagem personalizada ao perfil @"+item.candidate_username+"?\n\n"+preview+"\n\nO envio pode falhar ou virar uma solicitação de mensagem."))
    post(item.contact_id,"send-direct",{confirm:true});
- },!canSend,"danger","Enviar mensagem fixa individual");
+ },!canSend,"danger","Enviar mensagem individual personalizada");
  return tr;
 }
 
@@ -284,7 +467,7 @@ async function openSearchModal(item){
  activeModalContact=item;
  const dlg=byId("searchDialog");
  byId("modalTitle").textContent="Pesquisar Instagram · "+item.full_name;
- byId("modalSub").textContent=(item.vip_segment?("Segmento "+item.vip_segment+" · "):"")+(item.phone||"Sem telefone")+" · "+(item.email||"Sem e-mail");
+ byId("modalSub").textContent=(item.vip_segment?("Segmento "+item.vip_segment+" · "):"")+"Pedidos: "+(item.total_orders||0)+" · Ensaios Natal: "+(item.natal_sessions||0);
  byId("modalQuery").value=item.full_name;
  byId("modalResults").replaceChildren();
  byId("modalStatus").textContent="Consultando seguidores e diretório do Instagram…";
@@ -326,7 +509,9 @@ async function runModalSearch(customQuery){
    relLine.appendChild(el("span","Seguimos: "+statusLabel(c.we_follow),"status "+c.we_follow));
    meta.appendChild(relLine);
    card.appendChild(meta);
-   button(card,"Usar @ e puxar foto",async()=>{
+   button(card,"Usar @ e puxar foto",async(ev)=>{
+    ev.currentTarget.disabled=true;
+    ev.currentTarget.textContent="⏳ Aplicando…";
     byId("searchDialog").close();
     await post(activeModalContact.contact_id,"select-candidate",{username:c.username});
    },false,"primary");
@@ -346,22 +531,57 @@ async function runBatchPhotos(){
  batchRunning=true;
  const btn=byId("batchPhotosBtn");
  btn.textContent="⏹ Parar atualização";
- let done=0;
+ let done=0,okCount=0;
  try{
   for(const it of targets){
    if(!batchRunning)break;
    done++;
-   message("Atualizando "+done+"/"+targets.length+": @"+it.candidate_username+"…");
-   try{await post(it.contact_id,"inspect",{},true);}catch{}
+   inspectingIds.add(it.contact_id);
+   await load();
+   message("⏳ Atualizando "+done+"/"+targets.length+": @"+it.candidate_username+"…");
+   const res=await post(it.contact_id,"inspect",{},true);
+   inspectingIds.delete(it.contact_id);
+   if(res&&res.ok)okCount++;
    await load();
    if(done<targets.length&&batchRunning)await sleep(1500);
   }
   await refreshStats();
-  message(batchRunning?("Catálogo atualizado: "+done+" perfil(is) consultado(s)."):"Atualização pausada pelo operador.");
+  message(batchRunning?("✓ Catálogo atualizado: "+okCount+"/"+done+" perfil(is) consultado(s) com sucesso."):"Atualização pausada pelo operador.");
  }finally{
+  inspectingIds.clear();
   batchRunning=false;
   btn.textContent="📸 Atualizar fotos da página";
  }
+}
+
+async function saveMessageTemplate(){
+ const val=byId("messageInput").value.trim();
+ if(!val){message("A mensagem não pode ficar vazia.",true);return;}
+ const btn=byId("saveMsgBtn");btn.disabled=true;btn.textContent="⏳ Salvando…";
+ try{
+  const res=await api("/api/message",{
+   method:"POST",
+   headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},
+   body:JSON.stringify({message:val})
+  });
+  config.fixed_message=res.fixed_message;
+  byId("message").textContent=config.fixed_message;
+  toggleMessageEditor(false);
+  message("✓ Modelo de mensagem do Direct salvo com sucesso!");
+ }catch(e){
+  message(e.message,true);
+ }finally{
+  btn.disabled=false;btn.textContent="💾 Salvar mensagem";
+ }
+}
+
+function toggleMessageEditor(editing){
+ byId("message").style.display=editing?"none":"block";
+ byId("messageInput").style.display=editing?"block":"none";
+ byId("editMsgBtn").style.display=editing?"none":"inline-block";
+ byId("saveMsgBtn").style.display=editing?"inline-block":"none";
+ byId("cancelMsgBtn").style.display=editing?"inline-block":"none";
+ if(editing){byId("messageInput").value=config.fixed_message||"";byId("messageInput").focus();}
 }
 
 async function load(){
@@ -410,7 +630,14 @@ byId("segment").onchange=e=>{segment=e.target.value;page=1;load();};
 byId("onlyInstagram").onchange=e=>{instagramOnly=e.target.checked;page=1;load();};
 byId("onlyVerified").onchange=e=>{verifiedOnly=e.target.checked;page=1;load();};
 byId("batchPhotosBtn").onclick=runBatchPhotos;
+byId("editMsgBtn").onclick=()=>toggleMessageEditor(true);
+byId("cancelMsgBtn").onclick=()=>toggleMessageEditor(false);
+byId("saveMsgBtn").onclick=saveMessageTemplate;
 byId("modalClose").onclick=()=>byId("searchDialog").close();
+byId("photoModalClose").onclick=()=>byId("photoDialog").close();
+for(const dlgId of ["photoDialog","searchDialog"]){
+ byId(dlgId).addEventListener("click",e=>{if(e.target===byId(dlgId))byId(dlgId).close();});
+}
 byId("modalRunSearch").onclick=()=>{const q=byId("modalQuery").value.trim();runModalSearch(q===activeModalContact?.full_name?"":q);};
 byId("modalQuery").addEventListener("keydown",e=>{if(e.key==="Enter")byId("modalRunSearch").click();});
 init();

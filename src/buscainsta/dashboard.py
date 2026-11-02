@@ -2,12 +2,13 @@
 
 A human may review a candidate, search Instagram profiles, inspect their
 profile/follow relationship, cache a tiny avatar privately, and individually
-send one fixed Direct message after explicit manual verification. Never bulk-sends.
+send one Direct message after explicit manual verification. Never bulk-sends.
 """
 import argparse
 import hashlib
 import json
 import os
+import re
 import secrets
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -20,9 +21,14 @@ from .instagram_actions import InstagramActions, PublicSafeError, fetch_avatar
 from .live_sync import load_env_file
 
 DEFAULT_MESSAGE = (
-    "Olá! Aqui é o Estúdio Evydência. "
-    "Podemos conversar por aqui sobre as fotos de Natal? 🎄"
+    "Oi {primeiro_nome}, Tudo bem?\n\n"
+    "Vamos agendar as fotinhas de Natal?\n\n"
+    "Daqui 5 semanas já encerramos o Natal aqui, estamos chegando nos últimos horários!"
 )
+
+HONORIFIC_PREFIXES = frozenset({
+    "dr", "dra", "doutor", "doutora", "sr", "sra", "arq", "prof", "profa",
+})
 
 FAVICON_SVG = (
     b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
@@ -31,6 +37,31 @@ FAVICON_SVG = (
     b'<circle cx="23.5" cy="8.5" r="1.8" fill="#b9f5cf"/>'
     b'</svg>'
 )
+
+
+def extract_first_name(full_name: str) -> str:
+    """Return a clean title-cased given name, or '' for unnamed CRM placeholders."""
+    raw = (full_name or "").strip()
+    if not raw or raw.casefold().startswith("cliente crm"):
+        return ""
+    tokens = [t.strip(".,;:()[]{}") for t in raw.split() if t.strip(".,;:()[]{}")]
+    while len(tokens) > 1 and tokens[0].casefold() in HONORIFIC_PREFIXES:
+        tokens.pop(0)
+    if not tokens:
+        return ""
+    first = tokens[0]
+    if not any(ch.isalpha() for ch in first):
+        return ""
+    return "-".join(part.capitalize() for part in first.split("-"))
+
+
+def render_direct_message(template: str, full_name: str) -> str:
+    """Interpolate {primeiro_nome} cleanly for individual Direct messages."""
+    first = extract_first_name(full_name)
+    if first:
+        return re.sub(r"\{primeiro_nome\}", first, template, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s*\{primeiro_nome\}", "", template, flags=re.IGNORECASE)
+    return cleaned.strip()
 
 
 def load_or_create_csrf(db_path: Path) -> str:
@@ -49,7 +80,7 @@ def load_or_create_csrf(db_path: Path) -> str:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "BuscaInstaLocal/0.4"
+    server_version = "BuscaInstaLocal/0.5"
 
     def log_message(self, format, *args):
         # Never log URLs containing contact identifiers or payloads.
@@ -177,14 +208,34 @@ class Handler(BaseHTTPRequestHandler):
             return self._send({"error": "JSON expected."}, 415)
         try:
             length = int(self.headers.get("Content-Length", "0"))
-            if length < 2 or length > 4096:
+            if length < 2 or length > 8192:
                 return self._send({"error": "Invalid request length."}, 413)
             data = json.loads(self.rfile.read(length).decode("utf-8"))
             if not isinstance(data, dict):
                 return self._send({"error": "Invalid JSON."}, 400)
         except (ValueError, UnicodeError):
             return self._send({"error": "Invalid JSON."}, 400)
-        chunks = urlsplit(self.path).path.split("/")
+
+        req_path = urlsplit(self.path).path
+        if req_path == "/api/message":
+            try:
+                raw_msg = data.get("message")
+                if not isinstance(raw_msg, str):
+                    raise ValueError("Invalid message text.")
+                cleaned_msg = raw_msg.strip()
+                if not cleaned_msg or len(cleaned_msg) > 1000:
+                    raise ValueError("A mensagem deve ter entre 1 e 1000 caracteres.")
+                msg_file = getattr(self.context, "message_file", None)
+                if msg_file:
+                    target = store.check_private_path(Path(msg_file))
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(cleaned_msg + "\n", encoding="utf-8")
+                self.context.message = cleaned_msg
+                return self._send({"ok": True, "fixed_message": self.context.message})
+            except (ValueError, OSError) as exc:
+                return self._send({"error": str(exc)}, 409)
+
+        chunks = req_path.split("/")
         if len(chunks) != 5 or chunks[1:3] != ["api", "contacts"]:
             return self._send({"error": "Not found."}, 404)
         cid, action = unquote(chunks[3]), chunks[4]
@@ -256,13 +307,19 @@ class Handler(BaseHTTPRequestHandler):
                 )
                 if not has_creds:
                     raise ValueError("Instagram test account credentials missing.")
+                current_row = store.get_contact(self.context.db, cid)
+                rendered_message = render_direct_message(
+                    self.context.message, current_row.get("full_name", "")
+                )
+                if not rendered_message or len(rendered_message) > 1000:
+                    raise ValueError("Rendered Direct message is empty or exceeds 1000 chars.")
                 attempt_id = uuid.uuid4().hex
-                sha = hashlib.sha256(self.context.message.encode("utf-8")).hexdigest()
+                sha = hashlib.sha256(rendered_message.encode("utf-8")).hexdigest()
                 contact = store.reserve_dm(self.context.db, cid, self.context.account,
                                            sha, attempt_id)
                 try:
                     message_id = self.context.provider.direct_once(
-                        contact["instagram_pk"], self.context.message
+                        contact["instagram_pk"], rendered_message
                     )
                 except Exception:
                     store.finish_dm(self.context.db, cid, attempt_id, False)
@@ -325,9 +382,10 @@ def main():
                         src.backup(dst)
             print("Legacy panel migrated:", json.dumps(import_legacy(db, args.legacy_panel), sort_keys=True))
         message = DEFAULT_MESSAGE
+        message_file = None
         if args.message_file:
-            store.check_private_path(args.message_file)
-            message = args.message_file.read_text(encoding="utf-8").strip()
+            message_file = store.check_private_path(args.message_file)
+            message = message_file.read_text(encoding="utf-8").strip()
             if not message or len(message) > 1000:
                 parser.error("Fixed message file must have 1–1000 characters.")
         context = SimpleNamespace(
@@ -336,6 +394,7 @@ def main():
             read_enabled=args.enable_instagram,
             direct_enabled=args.enable_dm,
             message=message,
+            message_file=message_file,
             csrf=load_or_create_csrf(db),
             provider=InstagramActions(
                 args.account,

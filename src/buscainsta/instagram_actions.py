@@ -13,6 +13,7 @@ import threading
 import urllib.parse
 import urllib.request
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Optional
 
 MAX_IMAGE_BYTES = 750_000
@@ -77,7 +78,7 @@ def fetch_avatar(url: str, destination_dir: Path, stable_id: str) -> str:
     _public_dns_only(host)
     opener = urllib.request.build_opener(_RestrictedRedirect())
     request = urllib.request.Request(
-        url, headers={"User-Agent": "BuscaInsta-LocalReview/0.4", "Accept": "image/*"}
+        url, headers={"User-Agent": "BuscaInsta-LocalReview/0.5", "Accept": "image/*"}
     )
     try:
         with opener.open(request, timeout=8) as response:
@@ -189,7 +190,6 @@ class InstagramActions:
             except Exception:
                 if not loaded_session:
                     raise
-                # Stale session file: retry clean login once.
                 client = cls()
                 if hasattr(client, "delay_range"):
                     client.delay_range = [1, 3]
@@ -217,9 +217,65 @@ class InstagramActions:
             raise PublicSafeError("Instagram login unavailable; check account manually.") from exc
 
     def _lookup_profile(self, cl, name: str):
-        if hasattr(cl, "user_info_by_username_v1"):
-            return cl.user_info_by_username_v1(name)
-        return cl.user_info_by_username(name)
+        try:
+            if hasattr(cl, "user_info_by_username_v1"):
+                return cl.user_info_by_username_v1(name)
+            return cl.user_info_by_username(name)
+        except Exception as exc:
+            # Fallback if instagrapi's Pydantic User parser rejects optional fields
+            # even though last_json received a valid user payload.
+            last_json = getattr(cl, "last_json", None)
+            raw_user = last_json.get("user") if isinstance(last_json, dict) else None
+            if (
+                isinstance(raw_user, dict)
+                and raw_user.get("pk")
+                and str(raw_user.get("username", "")).lower() == name.lower()
+            ):
+                hd_info = raw_user.get("hd_profile_pic_url_info")
+                hd_url = hd_info.get("url") if isinstance(hd_info, dict) else None
+                return SimpleNamespace(
+                    pk=str(raw_user["pk"]),
+                    username=str(raw_user["username"]),
+                    full_name=str(raw_user.get("full_name") or ""),
+                    is_private=raw_user.get("is_private"),
+                    profile_pic_url_hd=hd_url,
+                    profile_pic_url=str(raw_user.get("profile_pic_url") or ""),
+                )
+            raise exc
+
+    def _lookup_relationship(self, cl, pk: str) -> tuple[str, str]:
+        """Fetch (follows_us, we_follow) safely, handling private accounts missing reel flags."""
+        if hasattr(cl, "user_friendship_v1"):
+            try:
+                rel = cl.user_friendship_v1(pk)
+                if rel is not None:
+                    return (
+                        _status(getattr(rel, "followed_by", None)),
+                        _status(getattr(rel, "following", None)),
+                    )
+            except Exception:
+                # instagrapi 3.x Relationship model fails ValidationError when
+                # 'is_blocking_reel' is omitted on private non-followed profiles,
+                # while cl.last_json already holds the valid friendship response.
+                last = getattr(cl, "last_json", None)
+                if (
+                    isinstance(last, dict)
+                    and last.get("status") == "ok"
+                    and ("followed_by" in last or "following" in last)
+                ):
+                    return _status(last.get("followed_by")), _status(last.get("following"))
+
+        if hasattr(cl, "private_request"):
+            try:
+                raw = cl.private_request(
+                    f"friendships/show/{pk}/",
+                    params={"is_external_deeplink_profile_view": "false"},
+                )
+                if isinstance(raw, dict) and raw.get("status") == "ok":
+                    return _status(raw.get("followed_by")), _status(raw.get("following"))
+            except Exception:
+                pass
+        return "unknown", "unknown"
 
     def inspect(self, username: str) -> dict:
         from .pilot import username as normalize
@@ -230,29 +286,32 @@ class InstagramActions:
             cl = self._connected()
             try:
                 profile = self._lookup_profile(cl, name)
-                pk = str(profile.pk)
-                relationship = cl.user_friendship_v1(pk)
             except Exception as exc:
-                if "login" in type(exc).__name__.lower():
+                err_name = type(exc).__name__.lower()
+                if "login" in err_name:
                     self._client = None
                     try:
                         cl = self._connected()
                         profile = self._lookup_profile(cl, name)
-                        pk = str(profile.pk)
-                        relationship = cl.user_friendship_v1(pk)
                     except Exception as retry_exc:
                         raise PublicSafeError("Instagram profile/relationship lookup unavailable.") from retry_exc
+                elif "notfound" in err_name or "user not found" in str(exc).lower():
+                    raise PublicSafeError("Perfil @ não encontrado no Instagram (pode ter mudado de nome).") from exc
                 else:
                     raise PublicSafeError("Instagram profile/relationship lookup unavailable.") from exc
+
             if name.lower() != str(profile.username).lower():
                 raise PublicSafeError("Instagram username changed; review profile manually.")
+
+            pk = str(profile.pk)
+            follows_us, we_follow = self._lookup_relationship(cl, pk)
             return {
                 "username": str(profile.username),
                 "pk": pk,
                 "full_name": str(getattr(profile, "full_name", "") or "")[:150],
                 "is_private": _status(getattr(profile, "is_private", None)),
-                "follows_us": _status(getattr(relationship, "followed_by", None)),
-                "we_follow": _status(getattr(relationship, "following", None)),
+                "follows_us": follows_us,
+                "we_follow": we_follow,
                 "profile_url": "https://www.instagram.com/" + name + "/",
                 "photo_url": str(
                     getattr(profile, "profile_pic_url_hd", None)
@@ -302,7 +361,6 @@ class InstagramActions:
                     raw_by_username[uname] = unwrapped
 
             try:
-                # 1. Search inside studio's own followers first (highest signal)
                 studio_uid = str(getattr(cl, "user_id", "") or "")
                 parts = name_parts(full_name)
                 f_query = override or (parts[0] if parts else queries[0])
@@ -313,7 +371,6 @@ class InstagramActions:
                     except Exception:
                         pass
 
-                # 2. Unified TopSearch (social graph + locality ranking)
                 if hasattr(cl, "fbsearch_topsearch_flat"):
                     try:
                         for hit in cl.fbsearch_topsearch_flat(queries[0]) or []:
@@ -321,7 +378,6 @@ class InstagramActions:
                     except Exception:
                         pass
 
-                # 3. User directory search (cascade queries)
                 for idx, q in enumerate(queries):
                     if idx > 0 and raw_by_username:
                         best_so_far = max(
@@ -343,7 +399,6 @@ class InstagramActions:
                 if not raw_by_username:
                     raise PublicSafeError("Pesquisa no Instagram indisponível no momento.") from exc
 
-            # Initial ranking to select top candidates for relationship enrichment
             preliminary: list[tuple[int, str, object]] = []
             for uname, obj in raw_by_username.items():
                 pk_val = get_user_field(obj, "pk")
@@ -353,7 +408,6 @@ class InstagramActions:
             preliminary.sort(key=lambda item: item[0], reverse=True)
             top_items = preliminary[:limit]
 
-            # Batch enrich we_follow / is_private via friendships/show_many
             we_follow_map: dict[str, str] = {}
             private_map: dict[str, str] = {}
             pks = [get_user_field(obj, "pk") for _, _, obj in top_items if get_user_field(obj, "pk")]
@@ -367,23 +421,20 @@ class InstagramActions:
                 except Exception:
                     pass
 
-            # Exact two-way follow check for top 3 candidates when follows_us is still unknown
             follows_us_map: dict[str, str] = {pk: "yes" for pk in follower_pks}
-            if hasattr(cl, "user_friendship_v1"):
-                checked_exact = 0
-                for _, _, obj in top_items:
-                    if checked_exact >= 3:
-                        break
-                    pk_val = get_user_field(obj, "pk")
-                    if not pk_val or pk_val in follows_us_map:
-                        continue
-                    checked_exact += 1
-                    try:
-                        rel = cl.user_friendship_v1(pk_val)
-                        follows_us_map[pk_val] = _status(getattr(rel, "followed_by", None))
-                        we_follow_map[pk_val] = _status(getattr(rel, "following", None))
-                    except Exception:
-                        pass
+            checked_exact = 0
+            for _, _, obj in top_items:
+                if checked_exact >= 3:
+                    break
+                pk_val = get_user_field(obj, "pk")
+                if not pk_val or pk_val in follows_us_map:
+                    continue
+                checked_exact += 1
+                f_us_exact, w_fol_exact = self._lookup_relationship(cl, pk_val)
+                if f_us_exact != "unknown":
+                    follows_us_map[pk_val] = f_us_exact
+                if w_fol_exact != "unknown":
+                    we_follow_map[pk_val] = w_fol_exact
 
             results: list[dict] = []
             for _, uname, obj in top_items:
@@ -426,6 +477,4 @@ class InstagramActions:
             except PublicSafeError:
                 raise
             except Exception as exc:
-                # A timeout might occur after the provider accepted a message.
-                # Do not retry, do not leak raw errors.
                 raise PublicSafeError("Direct outcome is unknown; check inbox before retry.") from exc

@@ -11,7 +11,12 @@ from urllib.request import Request, urlopen
 import pytest
 
 from buscainsta import dashboard_store as s
-from buscainsta.dashboard import Handler, load_or_create_csrf
+from buscainsta.dashboard import (
+    Handler,
+    extract_first_name,
+    load_or_create_csrf,
+    render_direct_message,
+)
 from buscainsta.instagram_actions import InstagramActions, photo_host_allowed
 from buscainsta.live_sync import match_user_to_contact
 
@@ -21,7 +26,7 @@ def db(tmp_path):
     path = tmp_path / "private" / "clients.db"
     s.setup(path)
     rows = [
-        ["C-001", "Cliente Exemplo", "", "cliente@example.invalid", "", "", "", ""],
+        ["C-001", "Camila Exemplo", "", "cliente@example.invalid", "", "", "", ""],
         ["C-002", "Outra Pessoa", "", "outra@example.invalid", "", "", "", ""],
     ]
     source = tmp_path / "original.csv"
@@ -31,6 +36,14 @@ def db(tmp_path):
         writer.writerows(rows)
     assert s.import_contacts(path, source) == 2
     return path
+
+
+def test_extract_first_name_and_render_direct_message():
+    assert extract_first_name("CAMILA PEREIRA") == "Camila"
+    assert extract_first_name("Dra. Ana-Clara Souza") == "Ana-Clara"
+    assert extract_first_name("Cliente CRM 1299") == ""
+    assert render_direct_message("Oi {primeiro_nome}, Tudo bem?", "CAMILA PEREIRA") == "Oi Camila, Tudo bem?"
+    assert render_direct_message("Oi {primeiro_nome}, Tudo bem?", "Cliente CRM 1299") == "Oi, Tudo bem?"
 
 
 def test_store_review_and_flags(db):
@@ -149,16 +162,18 @@ def test_image_allowlist():
 class FakeIG:
     def __init__(self):
         self.sent = 0
+        self.last_message = ""
         self.username = "conta_estudio"
         self.user_id = "999000"
+        self.last_json = {}
 
     def login(self, login, password):
         self.login_name = login
 
     def user_info_by_username_v1(self, user):
         return SimpleNamespace(
-            username=user, pk="123", full_name="Cliente Exemplo | Moda & Lifestyle",
-            is_private=False, profile_pic_url="", profile_pic_url_hd=None
+            username=user, pk="123", full_name="Camila Exemplo | Moda & Lifestyle",
+            is_private=True, profile_pic_url="", profile_pic_url_hd=None
         )
 
     def user_friendship_v1(self, pk):
@@ -170,8 +185,8 @@ class FakeIG:
     def search_followers_v1(self, uid, query):
         return [
             SimpleNamespace(
-                username="clienteexemplo.oficial", pk="123",
-                full_name="Cliente Exemplo | Moda & Lifestyle", is_private=False
+                username="camilaexemplo.oficial", pk="123",
+                full_name="Camila Exemplo | Moda & Lifestyle", is_private=False
             )
         ]
 
@@ -190,8 +205,26 @@ class FakeIG:
 
     def direct_send(self, message, user_ids):
         self.sent += 1
+        self.last_message = message
         assert user_ids == [123]
         return SimpleNamespace(id="DIRECT-1")
+
+
+def test_private_profile_missing_reel_flags_fallback(monkeypatch):
+    monkeypatch.setenv("BUSCAINSTA_IG_TEST_LOGIN", "tester")
+    monkeypatch.setenv("BUSCAINSTA_IG_TEST_PASSWORD", "redacted")
+
+    class PrivateProfileIG(FakeIG):
+        def user_friendship_v1(self, pk):
+            # Simulate instagrapi Pydantic ValidationError on private profiles
+            self.last_json = {"user_id": pk, "followed_by": False, "following": False, "status": "ok"}
+            raise RuntimeError("ValidationError: is_blocking_reel Field required")
+
+    adapter = InstagramActions("conta_estudio", client_factory=PrivateProfileIG)
+    prof = adapter.inspect("perfil_privado")
+    assert prof["is_private"] == "yes"
+    assert prof["follows_us"] == "no"
+    assert prof["we_follow"] == "no"
 
 
 def test_instagram_adapter_one_to_one_and_search(monkeypatch, tmp_path):
@@ -215,9 +248,9 @@ def test_instagram_adapter_one_to_one_and_search(monkeypatch, tmp_path):
     assert profile["we_follow"] == "no"
     assert profile["photo_url"] == ""
 
-    hits = adapter.search_candidates("Cliente Exemplo")
+    hits = adapter.search_candidates("Camila Exemplo")
     assert len(hits) >= 1
-    assert hits[0]["username"] == "clienteexemplo.oficial"
+    assert hits[0]["username"] == "camilaexemplo.oficial"
     assert hits[0]["follows_us"] == "yes"
     assert hits[0]["we_follow"] == "no"
     assert hits[0]["score"] >= 90
@@ -226,15 +259,18 @@ def test_instagram_adapter_one_to_one_and_search(monkeypatch, tmp_path):
     assert fake.sent == 1
 
 
-def test_local_ui_flow(db, monkeypatch):
+def test_local_ui_flow(db, monkeypatch, tmp_path):
     monkeypatch.setenv("BUSCAINSTA_IG_TEST_LOGIN", "tester")
     monkeypatch.setenv("BUSCAINSTA_IG_TEST_PASSWORD", "redacted")
-    provider = InstagramActions("conta_estudio", client_factory=FakeIG)
+    fake = FakeIG()
+    provider = InstagramActions("conta_estudio", client_factory=lambda: fake)
+    msg_file = tmp_path / "private" / "mensagem.txt"
+    msg_file.write_text("Mensagem inicial", encoding="utf-8")
     srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     srv.context = SimpleNamespace(
         db=db, account="conta_estudio", read_enabled=True,
-        direct_enabled=True, message="Mensagem fixa", csrf="unit-test-token",
-        provider=provider
+        direct_enabled=True, message="Mensagem inicial", message_file=msg_file,
+        csrf="unit-test-token", provider=provider
     )
     thread = threading.Thread(target=srv.serve_forever, daemon=True)
     thread.start()
@@ -244,9 +280,9 @@ def test_local_ui_flow(db, monkeypatch):
         with urlopen(base + path, timeout=3) as response:
             return response.read().decode("utf-8")
 
-    def post(action, value, csrf=True):
+    def post_raw(url_path, value, csrf=True):
         req = Request(
-            base + "/api/contacts/C-001/" + action,
+            base + url_path,
             data=json.dumps(value).encode(),
             headers={
                 "Content-Type": "application/json",
@@ -257,10 +293,14 @@ def test_local_ui_flow(db, monkeypatch):
         with urlopen(req, timeout=4) as response:
             return json.loads(response.read())
 
+    def post(action, value, csrf=True):
+        return post_raw("/api/contacts/C-001/" + action, value, csrf=csrf)
+
     try:
         html = get("/")
         assert "BuscaInsta" in html
         assert "Permissão Direct" not in html
+        assert "photoDialog" in html
         assert "Pesquisar IG" in html
         assert "<svg" in get("/favicon.ico")
         cfg = json.loads(get("/api/config"))
@@ -270,8 +310,13 @@ def test_local_ui_flow(db, monkeypatch):
             post("candidate", {"username": "cliente_teste"}, False)
         assert blocked.value.code == 403
 
+        # Update Direct template with {primeiro_nome}
+        updated_tpl = post_raw("/api/message", {"message": "Oi {primeiro_nome}, Tudo bem?"})
+        assert updated_tpl["fixed_message"] == "Oi {primeiro_nome}, Tudo bem?"
+        assert msg_file.read_text(encoding="utf-8").strip() == "Oi {primeiro_nome}, Tudo bem?"
+
         search_res = post("search-ig", {})
-        assert search_res["candidates"][0]["username"] == "clienteexemplo.oficial"
+        assert search_res["candidates"][0]["username"] == "camilaexemplo.oficial"
 
         post("select-candidate", {"username": "cliente_teste"})
         assert s.get_contact(db, "C-001")["follows_us"] == "yes"
@@ -286,6 +331,7 @@ def test_local_ui_flow(db, monkeypatch):
         assert verified_row["dm_permitted"] == 1
 
         post("send-direct", {"confirm": True})
+        assert fake.last_message == "Oi Camila, Tudo bem?"
         row = s.get_contact(db, "C-001")
         assert row["last_dm_status"] == "accepted" and row["last_dm_accepted_at"]
         with pytest.raises(HTTPError) as duplicate:
