@@ -369,7 +369,7 @@ async function initialize() {
     try {
       const result = await postJSON("/api/competitors/bulk", { usernames: starter });
       await refreshOverview();
-      setText("form-status", result.saved + " concorrentes iniciais cadastrados sem duplicação.");
+      setText("form-status", result.saved + " perfis conferidos · " + result.created + " novos · " + result.existing + " já existentes.");
     } catch (error) { setText("form-status", error.message); }
     finally { control.disabled = false; }
   });
@@ -383,7 +383,7 @@ async function initialize() {
       const result = await postJSON("/api/competitors/bulk", { usernames: values });
       $("batch-input").value = "";
       await refreshOverview();
-      setText("form-status", result.saved + " perfis registrados sem duplicar cadastros.");
+      setText("form-status", result.saved + " perfis conferidos · " + result.created + " novos · " + result.existing + " já cadastrados.");
     } catch (error) { setText("form-status", error.message); }
     finally { submit.disabled = false; }
   });
