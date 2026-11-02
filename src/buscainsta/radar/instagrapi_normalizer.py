@@ -95,3 +95,37 @@ def normalize_media(media: Any, username: str) -> dict:
         "comment_previews": normalize_comments(media),
         "assets": assets,
     }
+
+
+def import_authorized_export(root, path, username: str) -> dict:
+    """Import a local authorized Media model_dump JSON, without network requests."""
+    import json
+    from pathlib import Path
+    from . import query, store
+    username = query.normalize_username(username)
+    path = Path(path)
+    if path.stat().st_size > 10 * 1024 * 1024:
+        raise ValueError("Export too large")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    medias = payload.get("medias") if isinstance(payload, dict) else payload
+    if not isinstance(medias, list) or len(medias) > 300:
+        raise ValueError("Export must contain at most 300 medias")
+    store.initialize(root)
+    start = store.now()
+    processed = 0
+    try:
+        for item in medias:
+            record = normalize_media(item, username)
+            post_id = store.upsert_post(root, record)
+            for position, asset in enumerate(record["assets"]):
+                store.put_asset(root, post_id, position, asset["kind"],
+                                remote_url=asset.get("remote_url", ""),
+                                poster_url=asset.get("poster_url", ""))
+            processed += 1
+        store.record_run(root, "instagrapi_authorized_export", start, "completed", processed)
+        return {"source": "instagrapi_authorized_export", "processed": processed,
+                "downloaded_files": 0}
+    except Exception as exc:
+        store.record_run(root, "instagrapi_authorized_export", start, "failed",
+                         processed, type(exc).__name__)
+        raise
