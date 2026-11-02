@@ -64,3 +64,6 @@ O antigo relatório estático com **2.739 linhas**, candidatos e filtros VIP pod
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-dashboard-windows.ps1 -Db "C:\BuscaInstaPrivado\buscainsta.db" -LegacyPanel "C:\BuscaInstaPrivado\painel_conferencia.html" -Account "estudio_teste"
 ```
 Depois abra `http://127.0.0.1:8765/`. O painel unificado mantém rank, score e filtros e adiciona foto/follow, checkbox e Direct individual. Veja `docs/DASHBOARD.md`. Não fazer commit do HTML antigo: contém informações de clientes.
+
+## Radar de Concorrentes (branch de desenvolvimento)
+O módulo isolado `buscainsta.radar` implementa acervo **offline** e galeria local. Ele não realiza coleta do Instagram, nem captura/baixa Stories automaticamente. Documentação, comandos e limites: [docs/RADAR.md](docs/RADAR.md). Os dados permanecem fora do repositório.
