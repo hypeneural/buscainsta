@@ -109,3 +109,19 @@ def test_list_filters_do_not_expose_other_records(tmp_path):
     assert store.list_contacts(db,verified_only=True)["total"] == 0
     with pytest.raises(ValueError):
         store.list_contacts(db,segment="ANY")
+
+def test_standard_csv_does_not_silently_merge_repeated_crm_ids(tmp_path):
+    # Historical report uses repeated CRM IDs, so standard import must not
+    # silently overwrite a second person's phone. Use legacy importer instead.
+    import csv
+    db = tmp_path / "private" / "local.db"
+    store.setup(db)
+    inp = tmp_path / "contacts.csv"
+    with inp.open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(store.CONTACT_COLUMNS)
+        writer.writerow(["123", "Cliente A", "+5548999991111", "", "", "", "", ""])
+        writer.writerow(["123", "Cliente B", "+5548999992222", "", "", "", "", ""])
+    with pytest.raises(ValueError, match="Duplicate contact_id"):
+        store.import_contacts(db,inp)
+    assert store.list_contacts(db)["total"] == 0

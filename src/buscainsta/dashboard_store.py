@@ -134,10 +134,22 @@ def _csv_rows(path: Path, columns: tuple[str, ...], max_rows: int):
 def import_contacts(db_path: Path, path: Path) -> int:
     """Import even unreviewed contacts; does NOT infer consent for Direct."""
     count = 0
+    seen_ids = set()
     with connection(db_path) as db:
         for row in _csv_rows(path, CONTACT_COLUMNS, 10000):
             if not row["contact_id"] or not row["full_name"]:
                 raise ValueError("Contact ID and name are required.")
+            if row["contact_id"] in seen_ids:
+                raise ValueError("Duplicate contact_id in CSV; use --legacy-panel import.")
+            seen_ids.add(row["contact_id"])
+            prior = db.execute(
+                "SELECT phone FROM contacts WHERE contact_id=?", (row["contact_id"],)
+            ).fetchone()
+            if prior and prior["phone"] and row["phone"] and (
+                "".join(c for c in prior["phone"] if c.isdigit()) !=
+                "".join(c for c in row["phone"] if c.isdigit())
+            ):
+                raise ValueError("Contact ID belongs to a different phone; manual review needed.")
             db.execute("""
                 INSERT INTO contacts(contact_id,full_name,phone,email,candidate_username,status)
                 VALUES(?,?,?,?,?,'pending')
